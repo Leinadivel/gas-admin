@@ -46,6 +46,7 @@ export default function VendorLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="vendor@example.com"
               required
             />
           </div>
@@ -57,6 +58,7 @@ export default function VendorLoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
             />
           </div>

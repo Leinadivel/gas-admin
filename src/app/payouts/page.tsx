@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
+type VendorMini = {
+  business_name: string | null
+  bank_name: string | null
+  account_number: string | null
+  account_name: string | null
+}
+
 type PayoutRow = {
   id: string
   vendor_id: string
@@ -13,12 +20,8 @@ type PayoutRow = {
   reviewed_by: string | null
   rejection_reason: string | null
   paystack_reference: string | null
-  vendors?: {
-    business_name: string | null
-    bank_name: string | null
-    account_number: string | null
-    account_name: string | null
-  } | null
+  // Supabase join returns array by default
+  vendors?: VendorMini[] | null
 }
 
 const STATUS = ['all', 'pending', 'approved', 'rejected', 'paid', 'cancelled'] as const
@@ -39,15 +42,16 @@ export default function AdminPayoutsPage() {
     if (!query) return data
 
     return data.filter((r) => {
+      const v = r.vendors?.[0] ?? null
       const hay = [
         r.id,
         r.vendor_id,
         r.status,
         String(r.amount ?? ''),
-        r.vendors?.business_name ?? '',
-        r.vendors?.bank_name ?? '',
-        r.vendors?.account_number ?? '',
-        r.vendors?.account_name ?? '',
+        v?.business_name ?? '',
+        v?.bank_name ?? '',
+        v?.account_number ?? '',
+        v?.account_name ?? '',
       ]
         .join(' ')
         .toLowerCase()
@@ -79,7 +83,7 @@ export default function AdminPayoutsPage() {
         setError(error.message)
         setRows([])
       } else {
-        setRows((data ?? []) as PayoutRow[])
+        setRows((data ?? []) as unknown as PayoutRow[])
       }
 
       setLoading(false)
@@ -89,7 +93,11 @@ export default function AdminPayoutsPage() {
 
     const ch = supabase
       .channel('admin-payouts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendor_payout_requests' }, load)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vendor_payout_requests' },
+        load
+      )
       .subscribe()
 
     return () => {
@@ -202,65 +210,66 @@ export default function AdminPayoutsPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => (
-                <tr key={p.id} className="border-b last:border-b-0">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {p.requested_at ? new Date(p.requested_at).toLocaleString() : '—'}
-                  </td>
+              filtered.map((p) => {
+                const v = p.vendors?.[0] ?? null
 
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{p.vendors?.business_name ?? '—'}</div>
-                    <div className="text-xs opacity-60 font-mono">{p.vendor_id.slice(0, 8)}</div>
-                  </td>
+                return (
+                  <tr key={p.id} className="border-b last:border-b-0">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {p.requested_at ? new Date(p.requested_at).toLocaleString() : '—'}
+                    </td>
 
-                  <td className="px-4 py-3">₦{Number(p.amount ?? 0).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{v?.business_name ?? '—'}</div>
+                      <div className="text-xs opacity-60 font-mono">{p.vendor_id.slice(0, 8)}</div>
+                    </td>
 
-                  <td className="px-4 py-3">
-                    <div className="inline-flex rounded-md border px-2 py-1 text-xs bg-white">
-                      {p.status}
-                    </div>
-                    {p.status === 'rejected' && p.rejection_reason ? (
-                      <div className="mt-1 text-xs text-red-700">
-                        {p.rejection_reason}
+                    <td className="px-4 py-3">₦{Number(p.amount ?? 0).toLocaleString()}</td>
+
+                    <td className="px-4 py-3">
+                      <div className="inline-flex rounded-md border px-2 py-1 text-xs bg-white">
+                        {p.status}
                       </div>
-                    ) : null}
-                  </td>
+                      {p.status === 'rejected' && p.rejection_reason ? (
+                        <div className="mt-1 text-xs text-red-700">{p.rejection_reason}</div>
+                      ) : null}
+                    </td>
 
-                  <td className="px-4 py-3">
-                    <div className="text-xs">
-                      {(p.vendors?.bank_name ?? '—') +
-                        (p.vendors?.account_number ? ` • ${p.vendors.account_number}` : '')}
-                    </div>
-                    <div className="text-xs opacity-60">{p.vendors?.account_name ?? '—'}</div>
-                  </td>
+                    <td className="px-4 py-3">
+                      <div className="text-xs">
+                        {(v?.bank_name ?? '—') + (v?.account_number ? ` • ${v.account_number}` : '')}
+                      </div>
+                      <div className="text-xs opacity-60">{v?.account_name ?? '—'}</div>
+                    </td>
 
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => approve(p.id)}
-                        disabled={p.status !== 'pending'}
-                        className="rounded-md border bg-white px-3 py-2 text-xs hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => reject(p.id)}
-                        disabled={p.status === 'paid'}
-                        className="rounded-md border bg-white px-3 py-2 text-xs hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => markPaid(p.id)}
-                        disabled={p.status !== 'approved'}
-                        className="rounded-md bg-black text-white px-3 py-2 text-xs disabled:opacity-50"
-                      >
-                        Mark paid
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => approve(p.id)}
+                          disabled={p.status !== 'pending'}
+                          className="rounded-md border bg-white px-3 py-2 text-xs hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => reject(p.id)}
+                          disabled={p.status === 'paid'}
+                          className="rounded-md border bg-white px-3 py-2 text-xs hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => markPaid(p.id)}
+                          disabled={p.status !== 'approved'}
+                          className="rounded-md bg-black text-white px-3 py-2 text-xs disabled:opacity-50"
+                        >
+                          Mark paid
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
