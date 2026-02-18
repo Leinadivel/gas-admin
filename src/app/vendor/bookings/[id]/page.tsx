@@ -44,6 +44,7 @@ export default function VendorBookingDetailsPage() {
     const load = async () => {
       setLoading(true)
       setError(null)
+      setOrder(null)
 
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) {
@@ -84,7 +85,10 @@ export default function VendorBookingDetailsPage() {
         return
       }
 
-      const v = vendorRow as VendorRow
+      const v: VendorRow = {
+        id: String((vendorRow as any).id),
+        business_name: (vendorRow as any).business_name ?? null,
+      }
       setVendor(v)
 
       // order (must belong to vendor)
@@ -130,7 +134,29 @@ export default function VendorBookingDetailsPage() {
         return
       }
 
-      setOrder(orderRow as OrderDetails)
+      // Build a strongly-typed object instead of casting
+      const o: OrderDetails = {
+        id: String((orderRow as any).id),
+        status: String((orderRow as any).status),
+        created_at: String((orderRow as any).created_at),
+        location: (orderRow as any).location ?? null,
+        latitude: (orderRow as any).latitude ?? null,
+        longitude: (orderRow as any).longitude ?? null,
+        cylinder_size: (orderRow as any).cylinder_size ?? null,
+        quantity: (orderRow as any).quantity ?? null,
+        payment_status: (orderRow as any).payment_status ?? null,
+        payment_method: (orderRow as any).payment_method ?? null,
+        total_amount: (orderRow as any).total_amount ?? null,
+        vendor_amount: (orderRow as any).vendor_amount ?? null,
+        platform_amount: (orderRow as any).platform_amount ?? null,
+        delivery_fee: (orderRow as any).delivery_fee ?? null,
+        paystack_reference: (orderRow as any).paystack_reference ?? null,
+        paid_at: (orderRow as any).paid_at ?? null,
+        vehicle_id: (orderRow as any).vehicle_id ?? null,
+        distance_km: (orderRow as any).distance_km ?? null,
+      }
+
+      setOrder(o)
       setLoading(false)
     }
 
@@ -147,7 +173,7 @@ export default function VendorBookingDetailsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Booking details</h1>
           <p className="text-sm opacity-70">
-            {vendor?.business_name ?? 'Vendor'} • Order {orderId.slice(0, 8)}
+            {vendor?.business_name ?? 'Vendor'} • Order {orderId ? orderId.slice(0, 8) : '—'}
           </p>
         </div>
 
@@ -176,7 +202,10 @@ export default function VendorBookingDetailsPage() {
             <Row label="Created" value={new Date(order.created_at).toLocaleString()} />
             <Row label="Payment status" value={order.payment_status ?? '—'} />
             <Row label="Payment method" value={order.payment_method ?? '—'} />
-            <Row label="Paid at" value={order.paid_at ? new Date(order.paid_at).toLocaleString() : '—'} />
+            <Row
+              label="Paid at"
+              value={order.paid_at ? new Date(order.paid_at).toLocaleString() : '—'}
+            />
           </Card>
 
           <Card title="Customer location">
@@ -194,9 +223,18 @@ export default function VendorBookingDetailsPage() {
 
           <Card title="Amounts">
             <Row label="Total" value={order.total_amount != null ? `₦${order.total_amount}` : '—'} />
-            <Row label="Delivery fee" value={order.delivery_fee != null ? `₦${order.delivery_fee}` : '—'} />
-            <Row label="Vendor amount" value={order.vendor_amount != null ? `₦${order.vendor_amount}` : '—'} />
-            <Row label="Platform amount" value={order.platform_amount != null ? `₦${order.platform_amount}` : '—'} />
+            <Row
+              label="Delivery fee"
+              value={order.delivery_fee != null ? `₦${order.delivery_fee}` : '—'}
+            />
+            <Row
+              label="Vendor amount"
+              value={order.vendor_amount != null ? `₦${order.vendor_amount}` : '—'}
+            />
+            <Row
+              label="Platform amount"
+              value={order.platform_amount != null ? `₦${order.platform_amount}` : '—'}
+            />
             <Row label="Paystack ref" value={order.paystack_reference ?? '—'} mono />
           </Card>
         </div>
