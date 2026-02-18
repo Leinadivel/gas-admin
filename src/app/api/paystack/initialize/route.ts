@@ -1,50 +1,49 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 import type { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-function supabaseServer(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll()
-        },
-        setAll(cookies) {
-          cookies.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
-  return { supabase, res }
+function adminSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createClient(url, service, {
+    auth: { persistSession: false },
+  })
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase } = supabaseServer(req)
-
-    const { data: userData } = await supabase.auth.getUser()
-    const user = userData.user
-    if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-
     const body = await req.json()
-    const order_id = String(body?.order_id ?? '')
-    if (!order_id) return NextResponse.json({ error: 'order_id required' }, { status: 400 })
 
-    // 1) Load order (must belong to this user)
-    const { data: order, error: orderErr } = await supabase
+    const order_id = String(body?.order_id ?? '').trim()
+    const email = String(body?.email ?? '').trim().toLowerCase()
+
+    if (!order_id) return NextResponse.json({ error: 'order_id required' }, { status: 400 })
+    if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
+
+    const supabaseAdmin = adminSupabase()
+
+    // 1) Resolve auth user by email (admin)
+    const { data: userList, error: userErr } =
+      await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 })
+
+    if (userErr) return NextResponse.json({ error: userErr.message }, { status: 500 })
+
+    const user = userList?.users?.find((u) => (u.email ?? '').toLowerCase() === email)
+    if (!user) return NextResponse.json({ error: 'User not found for email' }, { status: 404 })
+
+    // 2) Load order (must belong to this user)
+    const { data: order, error: orderErr } = await supabaseAdmin
       .from('orders')
       .select('id,user_id,total_amount,payment_status')
       .eq('id', order_id)
-      .eq('user_id', user.id)
       .maybeSingle()
 
     if (orderErr) return NextResponse.json({ error: orderErr.message }, { status: 400 })
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+
+    if (order.user_id !== user.id) {
+      return NextResponse.json({ error: 'Order does not belong to this user' }, { status: 403 })
+    }
 
     if (order.payment_status === 'paid') {
       return NextResponse.json({ error: 'Order already paid' }, { status: 409 })
@@ -55,11 +54,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 })
     }
 
-    // Paystack expects amount in kobo for NGN
+    // Paystack expects amount in kobo
     const amountKobo = Math.round(amountNgn * 100)
 
-    // 2) Initialize Paystack transaction
+    // 3) Initialize Paystack transaction
     const reference = `order_${order.id}_${Date.now()}`
+
     const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
@@ -67,11 +67,12 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: user.email, // required :contentReference[oaicite:5]{index=5}
-        amount: amountKobo, // required (kobo) :contentReference[oaicite:6]{index=6}
+        email,
+        amount: amountKobo,
         reference,
         metadata: { order_id: order.id, user_id: user.id },
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/paystack/callback`, // optional, we rely on webhook
+        // Optional. We mainly rely on webhook.
+        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/vendor/login`,
       }),
     })
 
@@ -86,8 +87,8 @@ export async function POST(req: NextRequest) {
 
     const authorization_url = json.data.authorization_url as string
 
-    // 3) Store reference on order
-    const { error: upErr } = await supabase
+    // 4) Store reference + method
+    const { error: upErr } = await supabaseAdmin
       .from('orders')
       .update({ paystack_reference: reference, payment_method: 'paystack' })
       .eq('id', order.id)
