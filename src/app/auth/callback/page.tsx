@@ -1,5 +1,8 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
@@ -10,8 +13,7 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const run = async () => {
-      // In most setups Supabase will set the session automatically after redirect,
-      // but calling getSession ensures cookies are read.
+      // Ensure session cookies are read after redirect
       await supabase.auth.getSession()
 
       const next = params.get('next') || '/dashboard'
