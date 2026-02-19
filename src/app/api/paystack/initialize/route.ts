@@ -1,49 +1,64 @@
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-function adminSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const service = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  return createClient(url, service, {
-    auth: { persistSession: false },
-  })
+function getBearerToken(req: Request) {
+  const auth = req.headers.get('authorization') || ''
+  if (!auth.toLowerCase().startsWith('bearer ')) return null
+  return auth.slice('Bearer '.length).trim() || null
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await req.json()
+    const token = getBearerToken(req)
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Missing Authorization: Bearer <access_token>' },
+        { status: 401 }
+      )
+    }
 
-    const order_id = String(body?.order_id ?? '').trim()
-    const email = String(body?.email ?? '').trim().toLowerCase()
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const paystackKey = process.env.PAYSTACK_SECRET_KEY
 
+    if (!supabaseUrl || !anonKey) {
+      return NextResponse.json({ error: 'Server misconfig: Supabase URL/Anon key missing' }, { status: 500 })
+    }
+    if (!serviceKey) {
+      return NextResponse.json({ error: 'Server misconfig: SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 })
+    }
+    if (!paystackKey) {
+      return NextResponse.json({ error: 'Server misconfig: PAYSTACK_SECRET_KEY missing' }, { status: 500 })
+    }
+
+    // User-scoped client (RLS applies)
+    const supabaseUser = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
+    // Confirm the token is valid + get user
+    const { data: userData, error: userErr } = await supabaseUser.auth.getUser()
+    if (userErr || !userData.user) {
+      return NextResponse.json({ error: userErr?.message ?? 'Not authenticated' }, { status: 401 })
+    }
+    const user = userData.user
+
+    const body = await req.json().catch(() => ({}))
+    const order_id = String(body?.order_id ?? '')
     if (!order_id) return NextResponse.json({ error: 'order_id required' }, { status: 400 })
-    if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 })
 
-    const supabaseAdmin = adminSupabase()
-
-    // 1) Resolve auth user by email (admin)
-    const { data: userList, error: userErr } =
-      await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 })
-
-    if (userErr) return NextResponse.json({ error: userErr.message }, { status: 500 })
-
-    const user = userList?.users?.find((u) => (u.email ?? '').toLowerCase() === email)
-    if (!user) return NextResponse.json({ error: 'User not found for email' }, { status: 404 })
-
-    // 2) Load order (must belong to this user)
-    const { data: order, error: orderErr } = await supabaseAdmin
+    // 1) Load order (must belong to this user)
+    const { data: order, error: orderErr } = await supabaseUser
       .from('orders')
       .select('id,user_id,total_amount,payment_status')
       .eq('id', order_id)
+      .eq('user_id', user.id)
       .maybeSingle()
 
     if (orderErr) return NextResponse.json({ error: orderErr.message }, { status: 400 })
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-
-    if (order.user_id !== user.id) {
-      return NextResponse.json({ error: 'Order does not belong to this user' }, { status: 403 })
-    }
 
     if (order.payment_status === 'paid') {
       return NextResponse.json({ error: 'Order already paid' }, { status: 409 })
@@ -54,40 +69,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 })
     }
 
-    // Paystack expects amount in kobo
     const amountKobo = Math.round(amountNgn * 100)
-
-    // 3) Initialize Paystack transaction
     const reference = `order_${order.id}_${Date.now()}`
 
+    // 2) Initialize Paystack
     const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY!}`,
+        Authorization: `Bearer ${paystackKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email,
-        amount: amountKobo,
+        email: user.email, // Paystack requires email
+        amount: amountKobo, // kobo
         reference,
         metadata: { order_id: order.id, user_id: user.id },
-        // Optional. We mainly rely on webhook.
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/vendor/login`,
+        // callback_url is optional (webhook is the real source of truth)
       }),
     })
 
-    const json = await paystackRes.json()
+    const json = await paystackRes.json().catch(() => ({}))
 
     if (!paystackRes.ok || !json?.status) {
       return NextResponse.json(
         { error: json?.message ?? 'Paystack initialize failed', raw: json },
-        { status: 400 }
+        { status: paystackRes.status || 400 }
       )
     }
 
-    const authorization_url = json.data.authorization_url as string
+    const authorization_url = json.data?.authorization_url as string | undefined
+    if (!authorization_url) {
+      return NextResponse.json({ error: 'Paystack did not return authorization_url', raw: json }, { status: 400 })
+    }
 
-    // 4) Store reference + method
+    // 3) Store reference on order using SERVICE ROLE (avoid RLS issues)
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
     const { error: upErr } = await supabaseAdmin
       .from('orders')
       .update({ paystack_reference: reference, payment_method: 'paystack' })
