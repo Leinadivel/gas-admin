@@ -6,8 +6,10 @@ import { supabase } from '@/lib/supabase/client'
 type VendorMini = {
   business_name: string | null
   bank_name: string | null
+  bank_code?: string | null
   account_number: string | null
   account_name: string | null
+  paystack_recipient_code?: string | null
 }
 
 type PayoutRow = {
@@ -50,8 +52,10 @@ export default function AdminPayoutsPage() {
         String(r.amount ?? ''),
         v?.business_name ?? '',
         v?.bank_name ?? '',
+        v?.bank_code ?? '',
         v?.account_number ?? '',
         v?.account_name ?? '',
+        v?.paystack_recipient_code ?? '',
       ]
         .join(' ')
         .toLowerCase()
@@ -71,7 +75,7 @@ export default function AdminPayoutsPage() {
         .select(
           `
           id,vendor_id,amount,status,requested_at,reviewed_at,reviewed_by,rejection_reason,paystack_reference,
-          vendors:vendors (business_name, bank_name, account_number, account_name)
+          vendors:vendors (business_name, bank_name, bank_code, account_number, account_name, paystack_recipient_code)
         `
         )
         .order('requested_at', { ascending: false })
@@ -93,11 +97,7 @@ export default function AdminPayoutsPage() {
 
     const ch = supabase
       .channel('admin-payouts')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'vendor_payout_requests' },
-        load
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendor_payout_requests' }, load)
       .subscribe()
 
     return () => {
@@ -128,17 +128,42 @@ export default function AdminPayoutsPage() {
     else setNotice('Rejected.')
   }
 
+  /**
+   * ✅ NEW:
+   * Mark paid now triggers Paystack transfer to vendor bank (server route),
+   * then calls your existing RPC to debit wallet + insert transaction.
+   *
+   * Requires:
+   * - /api/paystack/transfer route (cookie-auth admin)
+   * - vendors.bank_code filled (Paystack needs bank_code)
+   */
   const markPaid = async (id: string) => {
-    const ref = window.prompt('Paystack reference (optional):') ?? null
+    const ok = window.confirm(
+      'This will initiate a Paystack transfer to the vendor bank account and then mark this payout as PAID. Continue?'
+    )
+    if (!ok) return
 
     setError(null)
     setNotice(null)
-    const { error } = await supabase.rpc('admin_mark_payout_request_paid', {
-      p_request_id: id,
-      p_paystack_reference: ref && ref.trim() ? ref.trim() : null,
-    })
-    if (error) setError(error.message)
-    else setNotice('Marked as PAID. Wallet debited + transaction created.')
+
+    try {
+      const res = await fetch('/api/paystack/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: id }),
+      })
+
+      const json = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(json?.error || `Transfer failed (${res.status})`)
+      }
+
+      const code = json?.transfer?.transfer_code ?? json?.transfer?.reference ?? ''
+      setNotice(code ? `Transfer started ✅ (${code}). Payout marked as PAID.` : 'Transfer started ✅. Payout marked as PAID.')
+    } catch (e: any) {
+      setError(e?.message ?? 'Transfer failed')
+    }
   }
 
   return (
@@ -212,6 +237,7 @@ export default function AdminPayoutsPage() {
             ) : (
               filtered.map((p) => {
                 const v = p.vendors?.[0] ?? null
+                const bankOk = !!v?.account_number && !!v?.account_name && !!v?.bank_code
 
                 return (
                   <tr key={p.id} className="border-b last:border-b-0">
@@ -227,9 +253,7 @@ export default function AdminPayoutsPage() {
                     <td className="px-4 py-3">₦{Number(p.amount ?? 0).toLocaleString()}</td>
 
                     <td className="px-4 py-3">
-                      <div className="inline-flex rounded-md border px-2 py-1 text-xs bg-white">
-                        {p.status}
-                      </div>
+                      <div className="inline-flex rounded-md border px-2 py-1 text-xs bg-white">{p.status}</div>
                       {p.status === 'rejected' && p.rejection_reason ? (
                         <div className="mt-1 text-xs text-red-700">{p.rejection_reason}</div>
                       ) : null}
@@ -237,9 +261,17 @@ export default function AdminPayoutsPage() {
 
                     <td className="px-4 py-3">
                       <div className="text-xs">
-                        {(v?.bank_name ?? '—') + (v?.account_number ? ` • ${v.account_number}` : '')}
+                        {(v?.bank_name ?? '—') +
+                          (v?.account_number ? ` • ${v.account_number}` : '')}
                       </div>
                       <div className="text-xs opacity-60">{v?.account_name ?? '—'}</div>
+                      {!bankOk ? (
+                        <div className="mt-1 text-[11px] text-amber-700">
+                          Missing: {v?.bank_code ? '' : 'bank_code '}
+                          {!v?.account_number ? 'account_number ' : ''}
+                          {!v?.account_name ? 'account_name' : ''}
+                        </div>
+                      ) : null}
                     </td>
 
                     <td className="px-4 py-3">
@@ -260,8 +292,9 @@ export default function AdminPayoutsPage() {
                         </button>
                         <button
                           onClick={() => markPaid(p.id)}
-                          disabled={p.status !== 'approved'}
+                          disabled={p.status !== 'approved' || !bankOk}
                           className="rounded-md bg-black text-white px-3 py-2 text-xs disabled:opacity-50"
+                          title={!bankOk ? 'Vendor bank details incomplete (need bank_code + account_number + account_name)' : ''}
                         >
                           Mark paid
                         </button>
@@ -276,7 +309,8 @@ export default function AdminPayoutsPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        “Mark paid” debits vendor wallet_balance and inserts a <code>payout_debit</code> transaction.
+        “Mark paid” now triggers a <code>/api/paystack/transfer</code> payout (Paystack bank transfer) then debits
+        vendor wallet_balance and inserts a <code>payout_debit</code> transaction.
       </div>
     </div>
   )
