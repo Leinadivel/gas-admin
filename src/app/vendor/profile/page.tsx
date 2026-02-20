@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
-type Bank = { name: string; code: string }
-
 type VendorRow = {
   id: string
   business_name: string | null
@@ -22,19 +20,20 @@ export default function VendorProfilePage() {
   const [notice, setNotice] = useState<string | null>(null)
 
   const [vendor, setVendor] = useState<VendorRow | null>(null)
-  const [banks, setBanks] = useState<Bank[]>([])
 
-  // form
   const [businessName, setBusinessName] = useState('')
-  const [bankCode, setBankCode] = useState('')
   const [bankName, setBankName] = useState('')
+  const [bankCode, setBankCode] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState('')
 
-  const bankLabel = useMemo(() => {
-    const b = banks.find((x) => x.code === bankCode)
-    return b?.name ?? bankName ?? ''
-  }, [banks, bankCode, bankName])
+  const missing = useMemo(() => {
+    const m: string[] = []
+    if (!bankCode.trim()) m.push('bank_code')
+    if (!accountNumber.trim()) m.push('account_number')
+    if (!accountName.trim()) m.push('account_name')
+    return m
+  }, [bankCode, accountNumber, accountName])
 
   useEffect(() => {
     let mounted = true
@@ -42,9 +41,7 @@ export default function VendorProfilePage() {
     const load = async () => {
       setLoading(true)
       setError(null)
-      setNotice(null)
 
-      // 1) user
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) {
         if (mounted) {
@@ -53,8 +50,9 @@ export default function VendorProfilePage() {
         }
         return
       }
-      const authId = userData.user?.id
-      if (!authId) {
+
+      const uid = userData.user?.id
+      if (!uid) {
         if (mounted) {
           setError('Not logged in')
           setLoading(false)
@@ -62,43 +60,33 @@ export default function VendorProfilePage() {
         return
       }
 
-      // 2) vendor row
-      const { data: vendorRow, error: vErr } = await supabase
+      const { data, error } = await supabase
         .from('vendors')
         .select('id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
-        .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
+        .eq('id', uid)
         .maybeSingle()
 
       if (!mounted) return
 
-      if (vErr) {
-        setError(vErr.message)
-        setLoading(false)
-        return
-      }
-      if (!vendorRow) {
-        setError('Vendor profile not found for this account.')
+      if (error) {
+        setError(error.message)
         setLoading(false)
         return
       }
 
-      const v = vendorRow as VendorRow
-      setVendor(v)
-
-      setBusinessName(v.business_name ?? '')
-      setBankCode(v.bank_code ?? '')
-      setBankName(v.bank_name ?? '')
-      setAccountNumber(v.account_number ?? '')
-      setAccountName(v.account_name ?? '')
-
-      // 3) load paystack banks (optional but recommended)
-      try {
-        const r = await fetch('/api/paystack/banks', { cache: 'no-store' })
-        const j = await r.json().catch(() => ({}))
-        if (r.ok && Array.isArray(j?.banks)) setBanks(j.banks)
-      } catch {
-        // ignore — form still works with manual values
+      if (!data) {
+        setError('Vendor profile not found.')
+        setLoading(false)
+        return
       }
+
+      setVendor(data as VendorRow)
+
+      setBusinessName(data.business_name ?? '')
+      setBankName(data.bank_name ?? '')
+      setBankCode(data.bank_code ?? '')
+      setAccountNumber(data.account_number ?? '')
+      setAccountName(data.account_name ?? '')
 
       setLoading(false)
     }
@@ -112,68 +100,51 @@ export default function VendorProfilePage() {
 
   const save = async () => {
     if (!vendor) return
-
     setSaving(true)
     setError(null)
     setNotice(null)
 
-    // basic validation
-    const acct = accountNumber.replace(/\s+/g, '')
-    if (acct && acct.length !== 10) {
-      setError('Account number must be 10 digits (NUBAN).')
-      setSaving(false)
-      return
-    }
+    try {
+      // If bank details changed, recipient code should be reset so admin payout recreates it safely.
+      const bankChanged =
+        (vendor.bank_code ?? '') !== bankCode.trim() ||
+        (vendor.account_number ?? '') !== accountNumber.trim() ||
+        (vendor.account_name ?? '') !== accountName.trim()
 
-    // bank_code is needed for Paystack transfers
-    if (!bankCode.trim()) {
-      setError('Please select a bank (bank_code is required).')
-      setSaving(false)
-      return
-    }
-
-    // bank_name should match bankCode selection (we still store both)
-    const finalBankName = banks.find((b) => b.code === bankCode)?.name ?? bankName
-
-    const { error: upErr } = await supabase
-      .from('vendors')
-      .update({
+      const patch: Partial<VendorRow> = {
         business_name: businessName.trim() || null,
-        bank_code: bankCode.trim(),
-        bank_name: finalBankName?.trim() || null,
-        account_number: acct || null,
+        bank_name: bankName.trim() || null,
+        bank_code: bankCode.trim() || null,
+        account_number: accountNumber.trim() || null,
         account_name: accountName.trim() || null,
+      }
 
-        // IMPORTANT:
-        // if vendor changes bank details after recipient was created,
-        // force recipient_code to null so server will re-create it correctly.
-        paystack_recipient_code: null,
-      })
-      .eq('id', vendor.id)
+      if (bankChanged) {
+        patch.paystack_recipient_code = null
+      }
 
-    if (upErr) {
-      setError(upErr.message)
+      const { data, error } = await supabase
+        .from('vendors')
+        .update(patch)
+        .eq('id', vendor.id)
+        .select('id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
+        .maybeSingle()
+
+      if (error) throw new Error(error.message)
+
+      setVendor(data as VendorRow)
+      setNotice(bankChanged ? 'Saved. (Recipient will be recreated on next payout)' : 'Saved.')
+    } catch (e: any) {
+      setError(e?.message ?? 'Save failed')
+    } finally {
       setSaving(false)
-      return
     }
-
-    setNotice('Saved. Bank changes will apply to the next payout.')
-    setSaving(false)
-
-    // refresh vendor to show updated values
-    const { data: v2 } = await supabase
-      .from('vendors')
-      .select('id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
-      .eq('id', vendor.id)
-      .maybeSingle()
-
-    if (v2) setVendor(v2 as VendorRow)
   }
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Profile</h1>
+        <h1 className="text-2xl font-semibold">Vendor Profile</h1>
         <p className="text-sm opacity-70">Update business + bank details for payouts.</p>
       </div>
 
@@ -195,117 +166,54 @@ export default function VendorProfilePage() {
 
       {!loading && vendor ? (
         <div className="rounded-xl border bg-white p-4 space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Business name">
-              <input
-                className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="Gas Vendor Ltd"
-              />
-            </Field>
-
-            <Field label="Vendor ID">
-              <input
-                className="w-full rounded-md border bg-gray-50 px-3 py-2 font-mono text-xs"
-                value={vendor.id}
-                readOnly
-              />
-            </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Business name" value={businessName} onChange={setBusinessName} />
+            <Field label="Bank name" value={bankName} onChange={setBankName} />
+            <Field label="Bank code (Paystack)" value={bankCode} onChange={setBankCode} />
+            <Field label="Account number" value={accountNumber} onChange={setAccountNumber} />
+            <Field label="Account name" value={accountName} onChange={setAccountName} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Bank">
-              {banks.length ? (
-                <select
-                  className="w-full rounded-md border bg-white px-3 py-2 text-sm"
-                  value={bankCode}
-                  onChange={(e) => {
-                    const code = e.target.value
-                    setBankCode(code)
-                    const name = banks.find((b) => b.code === code)?.name ?? ''
-                    setBankName(name)
-                  }}
-                >
-                  <option value="">Select bank…</option>
-                  {banks.map((b) => (
-                    <option key={b.code} value={b.code}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="space-y-2">
-                  <input
-                    className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    placeholder="Bank name (manual)"
-                  />
-                  <input
-                    className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-                    value={bankCode}
-                    onChange={(e) => setBankCode(e.target.value)}
-                    placeholder="Bank code (manual, required for Paystack)"
-                  />
-                </div>
-              )}
-              <div className="mt-1 text-xs opacity-60">Selected: {bankLabel || '—'}</div>
-            </Field>
-
-            <Field label="Account number (10 digits)">
-              <input
-                className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                placeholder="0123456789"
-                inputMode="numeric"
-              />
-            </Field>
-
-            <Field label="Account name">
-              <input
-                className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder="Vendor Account Name"
-              />
-            </Field>
-
-            <Field label="Paystack recipient (auto)">
-              <input
-                className="w-full rounded-md border bg-gray-50 px-3 py-2 font-mono text-xs"
-                value={vendor.paystack_recipient_code ?? '—'}
-                readOnly
-              />
-              <div className="mt-1 text-xs opacity-60">
-                This will be created automatically when admin pays out.
-              </div>
-            </Field>
+          <div className="text-xs opacity-70">
+            Recipient code: <span className="font-mono">{vendor.paystack_recipient_code ?? '—'}</span>
           </div>
+
+          {missing.length ? (
+            <div className="text-xs text-amber-700">
+              Missing: {missing.join(', ')} (Admin “Mark paid” will be disabled until these are filled)
+            </div>
+          ) : null}
 
           <button
             onClick={save}
             disabled={saving}
             className="rounded-md bg-black text-white px-4 py-2 text-sm disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? 'Saving…' : 'Save'}
           </button>
-
-          <div className="text-xs opacity-60">
-            If you change bank details, we reset recipient_code so Paystack payout uses the new account.
-          </div>
         </div>
       ) : null}
     </div>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
   return (
-    <div>
+    <label className="space-y-1">
       <div className="text-sm font-medium">{label}</div>
-      <div className="mt-2">{children}</div>
-    </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+      />
+    </label>
   )
 }
