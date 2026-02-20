@@ -78,27 +78,19 @@ export default function AdminPayoutsPage() {
       setLoading(true)
       setError(null)
 
-      const { data, error } = await supabase
-        .from('vendor_payout_requests')
-        .select(
-          `
-          id,vendor_id,amount,status,requested_at,reviewed_at,reviewed_by,rejection_reason,paystack_reference,
-          vendors:vendors (id, business_name, bank_name, bank_code, account_number, account_name, paystack_recipient_code)
-        `
-        )
-        .order('requested_at', { ascending: false })
-        .limit(200)
+      try {
+        const res = await fetch('/api/admin/payouts?limit=200', { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
 
-      if (!mounted) return
+        if (!res.ok) throw new Error(json?.error || `Failed (${res.status})`)
 
-      if (error) {
-        setError(error.message)
+        setRows((json?.data ?? []) as unknown as PayoutRow[])
+      } catch (e: any) {
+        setError(e?.message ?? 'Failed to load payouts')
         setRows([])
-      } else {
-        setRows((data ?? []) as unknown as PayoutRow[])
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
     load()
