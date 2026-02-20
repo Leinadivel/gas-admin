@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
 type VendorMini = {
+  id?: string | null
   business_name: string | null
   bank_name: string | null
   bank_code?: string | null
@@ -22,11 +23,18 @@ type PayoutRow = {
   reviewed_by: string | null
   rejection_reason: string | null
   paystack_reference: string | null
-  // Supabase join returns array by default
   vendors?: VendorMini[] | null
 }
 
 const STATUS = ['all', 'pending', 'approved', 'rejected', 'paid', 'cancelled'] as const
+
+function missingBankFields(v: VendorMini | null) {
+  const missing: string[] = []
+  if (!v?.bank_code) missing.push('bank_code')
+  if (!v?.account_number) missing.push('account_number')
+  if (!v?.account_name) missing.push('account_name')
+  return missing
+}
 
 export default function AdminPayoutsPage() {
   const [loading, setLoading] = useState(true)
@@ -75,7 +83,7 @@ export default function AdminPayoutsPage() {
         .select(
           `
           id,vendor_id,amount,status,requested_at,reviewed_at,reviewed_by,rejection_reason,paystack_reference,
-          vendors:vendors (business_name, bank_name, bank_code, account_number, account_name, paystack_recipient_code)
+          vendors:vendors (id, business_name, bank_name, bank_code, account_number, account_name, paystack_recipient_code)
         `
         )
         .order('requested_at', { ascending: false })
@@ -129,13 +137,8 @@ export default function AdminPayoutsPage() {
   }
 
   /**
-   * ✅ NEW:
-   * Mark paid now triggers Paystack transfer to vendor bank (server route),
-   * then calls your existing RPC to debit wallet + insert transaction.
-   *
-   * Requires:
-   * - /api/paystack/transfer route (cookie-auth admin)
-   * - vendors.bank_code filled (Paystack needs bank_code)
+   * Mark paid = Paystack transfer (server) + mark paid in DB
+   * Assumes you already built /api/paystack/transfer
    */
   const markPaid = async (id: string) => {
     const ok = window.confirm(
@@ -160,9 +163,23 @@ export default function AdminPayoutsPage() {
       }
 
       const code = json?.transfer?.transfer_code ?? json?.transfer?.reference ?? ''
-      setNotice(code ? `Transfer started ✅ (${code}). Payout marked as PAID.` : 'Transfer started ✅. Payout marked as PAID.')
+      setNotice(
+        code
+          ? `Transfer started ✅ (${code}). Payout marked as PAID.`
+          : 'Transfer started ✅. Payout marked as PAID.'
+      )
     } catch (e: any) {
       setError(e?.message ?? 'Transfer failed')
+    }
+  }
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setNotice('Copied ✅')
+      setTimeout(() => setNotice(null), 1200)
+    } catch {
+      // ignore
     }
   }
 
@@ -171,7 +188,7 @@ export default function AdminPayoutsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Payouts</h1>
-          <p className="text-sm opacity-70">Approve, reject, and mark payouts as paid.</p>
+          <p className="text-sm opacity-70">Approve, reject, and pay vendors (Paystack transfer).</p>
         </div>
 
         <div className="flex gap-2">
@@ -237,7 +254,18 @@ export default function AdminPayoutsPage() {
             ) : (
               filtered.map((p) => {
                 const v = p.vendors?.[0] ?? null
-                const bankOk = !!v?.account_number && !!v?.account_name && !!v?.bank_code
+
+                // Join can fail if vendor_id doesn't match vendors.id
+                const joinFailed = !p.vendors || p.vendors.length === 0
+
+                const missing = joinFailed ? ['vendor join failed'] : missingBankFields(v)
+                const bankOk = missing.length === 0
+
+                const disableReason = joinFailed
+                  ? 'Vendor join failed (vendor_id does not match vendors.id)'
+                  : missing.length
+                  ? `Missing: ${missing.join(', ')}`
+                  : ''
 
                 return (
                   <tr key={p.id} className="border-b last:border-b-0">
@@ -247,7 +275,25 @@ export default function AdminPayoutsPage() {
 
                     <td className="px-4 py-3">
                       <div className="font-medium">{v?.business_name ?? '—'}</div>
-                      <div className="text-xs opacity-60 font-mono">{p.vendor_id.slice(0, 8)}</div>
+
+                      <div className="mt-1 flex items-center gap-2">
+                        <div className="text-xs opacity-60 font-mono">{p.vendor_id.slice(0, 8)}</div>
+                        <button
+                          onClick={() => copy(p.vendor_id)}
+                          className="rounded-md border bg-white px-2 py-1 text-[11px] hover:bg-gray-50"
+                          title="Copy vendor_id"
+                        >
+                          Copy
+                        </button>
+                      </div>
+
+                      {joinFailed ? (
+                        <div className="mt-2 text-[11px] text-amber-700">
+                          Vendor join failed. This usually means{" "}
+                          <span className="font-mono">vendor_payout_requests.vendor_id</span> is not equal to{" "}
+                          <span className="font-mono">vendors.id</span>.
+                        </div>
+                      ) : null}
                     </td>
 
                     <td className="px-4 py-3">₦{Number(p.amount ?? 0).toLocaleString()}</td>
@@ -261,17 +307,17 @@ export default function AdminPayoutsPage() {
 
                     <td className="px-4 py-3">
                       <div className="text-xs">
-                        {(v?.bank_name ?? '—') +
-                          (v?.account_number ? ` • ${v.account_number}` : '')}
+                        {(v?.bank_name ?? '—') + (v?.account_number ? ` • ${v.account_number}` : '')}
                       </div>
                       <div className="text-xs opacity-60">{v?.account_name ?? '—'}</div>
+
                       {!bankOk ? (
-                        <div className="mt-1 text-[11px] text-amber-700">
-                          Missing: {v?.bank_code ? '' : 'bank_code '}
-                          {!v?.account_number ? 'account_number ' : ''}
-                          {!v?.account_name ? 'account_name' : ''}
+                        <div className="mt-1 text-[11px] text-amber-700">{disableReason}</div>
+                      ) : (
+                        <div className="mt-1 text-[11px] text-emerald-700">
+                          Ready ✅ (bank_code: <span className="font-mono">{v?.bank_code}</span>)
                         </div>
-                      ) : null}
+                      )}
                     </td>
 
                     <td className="px-4 py-3">
@@ -283,6 +329,7 @@ export default function AdminPayoutsPage() {
                         >
                           Approve
                         </button>
+
                         <button
                           onClick={() => reject(p.id)}
                           disabled={p.status === 'paid'}
@@ -290,11 +337,12 @@ export default function AdminPayoutsPage() {
                         >
                           Reject
                         </button>
+
                         <button
                           onClick={() => markPaid(p.id)}
                           disabled={p.status !== 'approved' || !bankOk}
                           className="rounded-md bg-black text-white px-3 py-2 text-xs disabled:opacity-50"
-                          title={!bankOk ? 'Vendor bank details incomplete (need bank_code + account_number + account_name)' : ''}
+                          title={p.status !== 'approved' ? 'Must be approved first' : disableReason}
                         >
                           Mark paid
                         </button>
@@ -309,8 +357,9 @@ export default function AdminPayoutsPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        “Mark paid” now triggers a <code>/api/paystack/transfer</code> payout (Paystack bank transfer) then debits
-        vendor wallet_balance and inserts a <code>payout_debit</code> transaction.
+        If “Vendor join failed”, confirm your DB:{" "}
+        <code>vendor_payout_requests.vendor_id</code> must match <code>vendors.id</code>.
+        If it doesn’t, we’ll change the join key (or change what you store in payout requests).
       </div>
     </div>
   )
