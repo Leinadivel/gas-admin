@@ -11,6 +11,7 @@ const nav = [
   { href: '/vendor/bookings', label: 'Bookings' },
   { href: '/vendor/wallet', label: 'Wallet' },
   { href: '/vendor/documents', label: 'Documents' },
+  { href: '/vendor/profile', label: 'Profile Settings' },
 ]
 
 export default function VendorShell({ children }: { children: React.ReactNode }) {
