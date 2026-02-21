@@ -4,13 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 
 type VendorMini = {
-  id?: string | null
   business_name: string | null
   bank_name: string | null
-  bank_code?: string | null
+  bank_code: string | null
   account_number: string | null
   account_name: string | null
-  paystack_recipient_code?: string | null
+  paystack_recipient_code: string | null
 }
 
 type PayoutRow = {
@@ -23,18 +22,12 @@ type PayoutRow = {
   reviewed_by: string | null
   rejection_reason: string | null
   paystack_reference: string | null
-  vendors?: VendorMini[] | null
+
+  // ✅ server route returns OBJECT, not array
+  vendors: VendorMini | null
 }
 
 const STATUS = ['all', 'pending', 'approved', 'rejected', 'paid', 'cancelled'] as const
-
-function missingBankFields(v: VendorMini | null) {
-  const missing: string[] = []
-  if (!v?.bank_code) missing.push('bank_code')
-  if (!v?.account_number) missing.push('account_number')
-  if (!v?.account_name) missing.push('account_name')
-  return missing
-}
 
 export default function AdminPayoutsPage() {
   const [loading, setLoading] = useState(true)
@@ -52,7 +45,7 @@ export default function AdminPayoutsPage() {
     if (!query) return data
 
     return data.filter((r) => {
-      const v = r.vendors?.[0] ?? null
+      const v = r.vendors
       const hay = [
         r.id,
         r.vendor_id,
@@ -71,39 +64,53 @@ export default function AdminPayoutsPage() {
     })
   }, [rows, status, q])
 
+  // ✅ Load from server (bypasses RLS)
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/admin/payouts', {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const json = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(json?.error || `Failed to load payouts (${res.status})`)
+      }
+
+      setRows((json?.data ?? []) as PayoutRow[])
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load payouts')
+      setRows([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
+    ;(async () => {
+      if (!mounted) return
+      await load()
+    })()
 
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const res = await fetch('/api/admin/payouts?limit=200', { cache: 'no-store' })
-        const json = await res.json().catch(() => ({}))
-
-        if (!res.ok) throw new Error(json?.error || `Failed (${res.status})`)
-
-        setRows((json?.data ?? []) as unknown as PayoutRow[])
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to load payouts')
-        setRows([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-
+    // ✅ realtime trigger (no join needed here)
     const ch = supabase
       .channel('admin-payouts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendor_payout_requests' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendor_payout_requests' }, () => {
+        load()
+      })
       .subscribe()
 
     return () => {
       mounted = false
       supabase.removeChannel(ch)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const approve = async (id: string) => {
@@ -128,10 +135,7 @@ export default function AdminPayoutsPage() {
     else setNotice('Rejected.')
   }
 
-  /**
-   * Mark paid = Paystack transfer (server) + mark paid in DB
-   * Assumes you already built /api/paystack/transfer
-   */
+  // ✅ Mark paid triggers Paystack transfer server-side
   const markPaid = async (id: string) => {
     const ok = window.confirm(
       'This will initiate a Paystack transfer to the vendor bank account and then mark this payout as PAID. Continue?'
@@ -144,6 +148,7 @@ export default function AdminPayoutsPage() {
     try {
       const res = await fetch('/api/paystack/transfer', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ request_id: id }),
       })
@@ -160,18 +165,11 @@ export default function AdminPayoutsPage() {
           ? `Transfer started ✅ (${code}). Payout marked as PAID.`
           : 'Transfer started ✅. Payout marked as PAID.'
       )
+
+      // refresh table
+      load()
     } catch (e: any) {
       setError(e?.message ?? 'Transfer failed')
-    }
-  }
-
-  const copy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setNotice('Copied ✅')
-      setTimeout(() => setNotice(null), 1200)
-    } catch {
-      // ignore
     }
   }
 
@@ -180,7 +178,7 @@ export default function AdminPayoutsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Payouts</h1>
-          <p className="text-sm opacity-70">Approve, reject, and pay vendors (Paystack transfer).</p>
+          <p className="text-sm opacity-70">Approve, reject, and mark payouts as paid.</p>
         </div>
 
         <div className="flex gap-2">
@@ -245,19 +243,8 @@ export default function AdminPayoutsPage() {
               </tr>
             ) : (
               filtered.map((p) => {
-                const v = p.vendors?.[0] ?? null
-
-                // Join can fail if vendor_id doesn't match vendors.id
-                const joinFailed = !p.vendors || p.vendors.length === 0
-
-                const missing = joinFailed ? ['vendor join failed'] : missingBankFields(v)
-                const bankOk = missing.length === 0
-
-                const disableReason = joinFailed
-                  ? 'Vendor join failed (vendor_id does not match vendors.id)'
-                  : missing.length
-                  ? `Missing: ${missing.join(', ')}`
-                  : ''
+                const v = p.vendors
+                const bankOk = !!v?.bank_code && !!v?.account_number && !!v?.account_name
 
                 return (
                   <tr key={p.id} className="border-b last:border-b-0">
@@ -267,25 +254,7 @@ export default function AdminPayoutsPage() {
 
                     <td className="px-4 py-3">
                       <div className="font-medium">{v?.business_name ?? '—'}</div>
-
-                      <div className="mt-1 flex items-center gap-2">
-                        <div className="text-xs opacity-60 font-mono">{p.vendor_id.slice(0, 8)}</div>
-                        <button
-                          onClick={() => copy(p.vendor_id)}
-                          className="rounded-md border bg-white px-2 py-1 text-[11px] hover:bg-gray-50"
-                          title="Copy vendor_id"
-                        >
-                          Copy
-                        </button>
-                      </div>
-
-                      {joinFailed ? (
-                        <div className="mt-2 text-[11px] text-amber-700">
-                          Vendor join failed. This usually means{" "}
-                          <span className="font-mono">vendor_payout_requests.vendor_id</span> is not equal to{" "}
-                          <span className="font-mono">vendors.id</span>.
-                        </div>
-                      ) : null}
+                      <div className="text-xs opacity-60 font-mono">{p.vendor_id.slice(0, 8)}</div>
                     </td>
 
                     <td className="px-4 py-3">₦{Number(p.amount ?? 0).toLocaleString()}</td>
@@ -304,12 +273,13 @@ export default function AdminPayoutsPage() {
                       <div className="text-xs opacity-60">{v?.account_name ?? '—'}</div>
 
                       {!bankOk ? (
-                        <div className="mt-1 text-[11px] text-amber-700">{disableReason}</div>
-                      ) : (
-                        <div className="mt-1 text-[11px] text-emerald-700">
-                          Ready ✅ (bank_code: <span className="font-mono">{v?.bank_code}</span>)
+                        <div className="mt-1 text-[11px] text-amber-700">
+                          Missing:{' '}
+                          {!v?.bank_code ? 'bank_code ' : ''}
+                          {!v?.account_number ? 'account_number ' : ''}
+                          {!v?.account_name ? 'account_name' : ''}
                         </div>
-                      )}
+                      ) : null}
                     </td>
 
                     <td className="px-4 py-3">
@@ -321,7 +291,6 @@ export default function AdminPayoutsPage() {
                         >
                           Approve
                         </button>
-
                         <button
                           onClick={() => reject(p.id)}
                           disabled={p.status === 'paid'}
@@ -329,12 +298,11 @@ export default function AdminPayoutsPage() {
                         >
                           Reject
                         </button>
-
                         <button
                           onClick={() => markPaid(p.id)}
                           disabled={p.status !== 'approved' || !bankOk}
                           className="rounded-md bg-black text-white px-3 py-2 text-xs disabled:opacity-50"
-                          title={p.status !== 'approved' ? 'Must be approved first' : disableReason}
+                          title={!bankOk ? 'Vendor bank details incomplete (need bank_code + account_number + account_name)' : ''}
                         >
                           Mark paid
                         </button>
@@ -349,9 +317,7 @@ export default function AdminPayoutsPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        If “Vendor join failed”, confirm your DB:{" "}
-        <code>vendor_payout_requests.vendor_id</code> must match <code>vendors.id</code>.
-        If it doesn’t, we’ll change the join key (or change what you store in payout requests).
+        “Mark paid” triggers <code>/api/paystack/transfer</code> (Paystack bank transfer) then marks payout paid + creates wallet transactions.
       </div>
     </div>
   )
