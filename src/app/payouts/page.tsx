@@ -135,43 +135,66 @@ export default function AdminPayoutsPage() {
     else setNotice('Rejected.')
   }
 
-  // ✅ Mark paid triggers Paystack transfer server-side
   const markPaid = async (id: string) => {
+    const ref =
+      window.prompt(
+        'Enter transfer reference (optional). If you paid manually, paste your bank transfer reference here:'
+      ) ?? ''
+
     const ok = window.confirm(
-      'This will initiate a Paystack transfer to the vendor bank account and then mark this payout as PAID. Continue?'
+      'Confirm you have already paid this vendor (manual transfer). This will mark the payout as PAID and debit the vendor wallet. Continue?'
     )
     if (!ok) return
 
     setError(null)
     setNotice(null)
 
-    try {
-      const res = await fetch('/api/paystack/transfer', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ request_id: id }),
-      })
+    const { error } = await supabase.rpc('admin_mark_payout_request_paid', {
+      p_request_id: id,
+      p_paystack_reference: ref.trim() ? ref.trim() : null,
+    })
 
-      const json = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        throw new Error(json?.error || `Transfer failed (${res.status})`)
-      }
-
-      const code = json?.transfer?.transfer_code ?? json?.transfer?.reference ?? ''
-      setNotice(
-        code
-          ? `Transfer started ✅ (${code}). Payout marked as PAID.`
-          : 'Transfer started ✅. Payout marked as PAID.'
-      )
-
-      // refresh table
-      load()
-    } catch (e: any) {
-      setError(e?.message ?? 'Transfer failed')
-    }
+    if (error) setError(error.message)
+    else setNotice('Marked as PAID ✅ (manual payout recorded).')
   }
+
+  // ✅ Mark paid triggers Paystack transfer server-side
+  // const markPaid = async (id: string) => {
+  //   const ok = window.confirm(
+  //     'This will initiate a Paystack transfer to the vendor bank account and then mark this payout as PAID. Continue?'
+  //   )
+  //   if (!ok) return
+
+  //   setError(null)
+  //   setNotice(null)
+
+  //   try {
+  //     const res = await fetch('/api/paystack/transfer', {
+  //       method: 'POST',
+  //       credentials: 'include',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ request_id: id }),
+  //     })
+
+  //     const json = await res.json().catch(() => ({}))
+
+  //     if (!res.ok) {
+  //       throw new Error(json?.error || `Transfer failed (${res.status})`)
+  //     }
+
+  //     const code = json?.transfer?.transfer_code ?? json?.transfer?.reference ?? ''
+  //     setNotice(
+  //       code
+  //         ? `Transfer started ✅ (${code}). Payout marked as PAID.`
+  //         : 'Transfer started ✅. Payout marked as PAID.'
+  //     )
+
+  //     // refresh table
+  //     load()
+  //   } catch (e: any) {
+  //     setError(e?.message ?? 'Transfer failed')
+  //   }
+  // }
 
   return (
     <div className="space-y-4">
@@ -300,9 +323,8 @@ export default function AdminPayoutsPage() {
                         </button>
                         <button
                           onClick={() => markPaid(p.id)}
-                          disabled={p.status !== 'approved' || !bankOk}
+                          disabled={p.status !== 'approved'}
                           className="rounded-md bg-black text-white px-3 py-2 text-xs disabled:opacity-50"
-                          title={!bankOk ? 'Vendor bank details incomplete (need bank_code + account_number + account_name)' : ''}
                         >
                           Mark paid
                         </button>
