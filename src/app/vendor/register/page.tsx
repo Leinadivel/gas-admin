@@ -13,46 +13,46 @@ export default function VendorRegisterPage() {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setSuccess(null)
     setLoading(true)
 
     try {
-      // 1) Sign up
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      // Use production URL if available
+      const siteUrl =
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+
+      const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/vendor/login`,
+          emailRedirectTo: `${siteUrl}/auth/callback?next=/vendor/login`,
+
+          // This will be read by the DB trigger
+          data: {
+            business_name: companyName.trim(),
+          },
         },
       })
+
       if (signUpError) throw signUpError
 
-      // If email confirmations are ON, session may be null.
-      // Force sign-in so RLS policies see auth.uid().
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      })
-      if (signInError) {
-        // If you still can't sign in, it usually means email confirmation is required.
-        throw new Error('Account created. Please confirm your email, then log in.')
-      }
+      // Email confirmation is ON → do NOT sign in here
+      setSuccess(
+        'Account created successfully. Please check your email to verify your account, then log in.'
+      )
 
-      const userId = signInData.user?.id
-      if (!userId) throw new Error('No user id after sign-in')
+      setCompanyName('')
+      setEmail('')
+      setPassword('')
 
-      // 2) Insert vendors row (now authenticated, auth.uid() works)
-      const { error: vendorErr } = await supabase.from('vendors').insert({
-        profile_id: userId,
-        business_name: companyName.trim(),
-        is_online: false,
-      })
-      if (vendorErr) throw vendorErr
-
-      router.replace('/vendor/dashboard')
+      setTimeout(() => {
+        router.replace('/vendor/login')
+      }, 1000)
 
     } catch (err: any) {
       setError(err?.message ?? 'Something went wrong')
@@ -65,7 +65,9 @@ export default function VendorRegisterPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-xl border p-6 shadow-sm bg-white">
         <h1 className="text-xl font-semibold">Vendor Registration</h1>
-        <p className="mt-1 text-sm opacity-70">Create your vendor company account.</p>
+        <p className="mt-1 text-sm opacity-70">
+          Create your vendor company account.
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
@@ -105,11 +107,17 @@ export default function VendorRegisterPage() {
             />
           </div>
 
-          {error ? (
+          {error && (
             <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </div>
-          ) : null}
+          )}
+
+          {success && (
+            <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+              {success}
+            </div>
+          )}
 
           <button
             type="submit"
