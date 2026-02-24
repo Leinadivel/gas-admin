@@ -19,6 +19,9 @@ type VehicleRow = {
 type VendorRow = {
   id: string
   business_name: string | null
+  profile_id?: string | null
+  user_id?: string | null
+  created_at?: string | null
 }
 
 export default function VendorVehiclesPage() {
@@ -65,12 +68,12 @@ export default function VendorVehiclesPage() {
         return
       }
 
-      // Get vendor row (same logic as dashboard)
-      const { data: vendorRow, error: vendorErr } = await supabase
+      // ✅ SAFE vendor lookup (NO maybeSingle)
+      const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
-        .select('id,business_name')
-        .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
-        .maybeSingle()
+        .select('id,business_name,profile_id,user_id,created_at')
+        .or(`profile_id.eq.${authId},user_id.eq.${authId},id.eq.${authId}`)
+        .order('created_at', { ascending: false })
 
       if (!mounted) return
 
@@ -79,22 +82,27 @@ export default function VendorVehiclesPage() {
         setLoading(false)
         return
       }
+
+      const rows = (vendorRows ?? []) as VendorRow[]
+      const vendorRow =
+        rows.find((r) => r.profile_id === authId) ??
+        rows.find((r) => r.user_id === authId) ??
+        rows[0] ??
+        null
+
       if (!vendorRow) {
         setError('Vendor profile not found for this account.')
         setLoading(false)
         return
       }
 
-      const v = vendorRow as VendorRow
-      setVendor(v)
+      setVendor(vendorRow)
 
       // Load vehicles
-      const { data: rows, error: vehiclesErr } = await supabase
+      const { data: vehRows, error: vehiclesErr } = await supabase
         .from('vendor_vehicles')
-        .select(
-          'id,vendor_id,label,plate_number,is_active,is_online,compliance_status,created_at,updated_at'
-        )
-        .eq('vendor_id', v.id)
+        .select('id,vendor_id,label,plate_number,is_active,is_online,compliance_status,created_at,updated_at')
+        .eq('vendor_id', vendorRow.id)
         .order('created_at', { ascending: false })
         .limit(200)
 
@@ -104,7 +112,7 @@ export default function VendorVehiclesPage() {
         setError(vehiclesErr.message)
         setVehicles([])
       } else {
-        setVehicles((rows ?? []) as VehicleRow[])
+        setVehicles((vehRows ?? []) as VehicleRow[])
       }
 
       setLoading(false)
