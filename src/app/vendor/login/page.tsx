@@ -1,11 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
 export default function VendorLoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const next = searchParams.get('next') || '/vendor/dashboard'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,20 +20,46 @@ export default function VendorLoginPage() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (signInError) throw signInError
 
-    setLoading(false)
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser()
+      if (userErr) throw userErr
+      if (!user) throw new Error('No session found')
 
-    if (error) {
-      setError(error.message)
-      return
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('role,is_admin')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profileErr) throw profileErr
+
+      // ✅ Vendor only (admins should not be here)
+      const isAdmin = profile?.is_admin === true
+      if (isAdmin) {
+        router.replace('/dashboard')
+        return
+      }
+
+      if (profile?.role !== 'vendor') {
+        await supabase.auth.signOut()
+        throw new Error('Access denied. This login is for vendors only.')
+      }
+
+      router.replace(next)
+    } catch (err: any) {
+      setError(err?.message ?? 'Sign in failed')
+    } finally {
+      setLoading(false)
     }
-
-    // ✅ do not insert/update any table here
-    router.replace('/vendor/dashboard')
   }
 
   return (

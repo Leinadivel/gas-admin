@@ -1,11 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const next = searchParams.get('next') || '/dashboard'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,19 +20,51 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (signInError) throw signInError
 
-    setLoading(false)
+      // ✅ IMPORTANT: check role/is_admin before allowing admin area
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser()
+      if (userErr) throw userErr
+      if (!user) throw new Error('No session found')
 
-    if (error) {
-      setError(error.message)
-      return
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('role,is_admin')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profileErr) throw profileErr
+
+      const isAdmin = profile?.is_admin === true
+
+      if (!isAdmin) {
+        // Kick them out of admin auth flow
+        await supabase.auth.signOut()
+
+        // If vendor, send to vendor login (better UX)
+        if (profile?.role === 'vendor') {
+          router.replace('/vendor/login')
+          return
+        }
+
+        throw new Error('Access denied. This login is for admins only.')
+      }
+
+      // ✅ Admin ok → go to requested page
+      router.replace(next)
+    } catch (err: any) {
+      setError(err?.message ?? 'Sign in failed')
+    } finally {
+      setLoading(false)
     }
-
-    router.replace('/dashboard')
   }
 
   return (
