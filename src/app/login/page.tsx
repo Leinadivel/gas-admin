@@ -1,11 +1,10 @@
 'use client'
-export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -28,7 +27,6 @@ export default function LoginPage() {
       })
       if (signInError) throw signInError
 
-      // ✅ IMPORTANT: check role/is_admin before allowing admin area
       const {
         data: { user },
         error: userErr,
@@ -47,19 +45,14 @@ export default function LoginPage() {
       const isAdmin = profile?.is_admin === true
 
       if (!isAdmin) {
-        // Kick them out of admin auth flow
         await supabase.auth.signOut()
-
-        // If vendor, send to vendor login (better UX)
         if (profile?.role === 'vendor') {
           router.replace('/vendor/login')
           return
         }
-
         throw new Error('Access denied. This login is for admins only.')
       }
 
-      // ✅ Admin ok → go to requested page
       router.replace(next)
     } catch (err: any) {
       setError(err?.message ?? 'Sign in failed')
@@ -119,5 +112,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading…</div>}>
+      <LoginInner />
+    </Suspense>
   )
 }

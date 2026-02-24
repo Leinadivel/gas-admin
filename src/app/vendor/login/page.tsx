@@ -1,11 +1,10 @@
 'use client'
-export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
-export default function VendorLoginPage() {
+function VendorLoginInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -43,9 +42,8 @@ export default function VendorLoginPage() {
 
       if (profileErr) throw profileErr
 
-      // ✅ Vendor only (admins should not be here)
-      const isAdmin = profile?.is_admin === true
-      if (isAdmin) {
+      // Vendor only
+      if (profile?.is_admin) {
         router.replace('/dashboard')
         return
       }
@@ -118,5 +116,19 @@ export default function VendorLoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function VendorLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="rounded-xl border bg-white p-4 text-sm opacity-70">Loading…</div>
+        </div>
+      }
+    >
+      <VendorLoginInner />
+    </Suspense>
   )
 }
