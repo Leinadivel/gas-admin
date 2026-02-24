@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client'
 
 type VendorRow = {
   id: string
+  profile_id: string
   business_name: string | null
   bank_name: string | null
   bank_code: string | null
@@ -60,10 +61,11 @@ export default function VendorProfilePage() {
         return
       }
 
+      // ✅ FIX: vendors row is linked by profile_id = auth user id
       const { data, error } = await supabase
         .from('vendors')
-        .select('id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
-        .eq('id', uid)
+        .select('id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
+        .eq('profile_id', uid)
         .maybeSingle()
 
       if (!mounted) return
@@ -105,7 +107,6 @@ export default function VendorProfilePage() {
     setNotice(null)
 
     try {
-      // If bank details changed, recipient code should be reset so admin payout recreates it safely.
       const bankChanged =
         (vendor.bank_code ?? '') !== bankCode.trim() ||
         (vendor.account_number ?? '') !== accountNumber.trim() ||
@@ -123,11 +124,12 @@ export default function VendorProfilePage() {
         patch.paystack_recipient_code = null
       }
 
+      // ✅ Update by vendor row id (correct)
       const { data, error } = await supabase
         .from('vendors')
         .update(patch)
         .eq('id', vendor.id)
-        .select('id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
+        .select('id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
         .maybeSingle()
 
       if (error) throw new Error(error.message)
@@ -175,7 +177,8 @@ export default function VendorProfilePage() {
           </div>
 
           <div className="text-xs opacity-70">
-            Recipient code: <span className="font-mono">{vendor.paystack_recipient_code ?? '—'}</span>
+            Recipient code:{' '}
+            <span className="font-mono">{vendor.paystack_recipient_code ?? '—'}</span>
           </div>
 
           {missing.length ? (
