@@ -1,7 +1,11 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  // ✅ Ensure Vercel can trace middleware/server files
+  outputFileTracing: true,
+  experimental: {
+    outputFileTracingRoot: __dirname,
+  },
+}
 
-export default nextConfig;
+export default nextConfig
