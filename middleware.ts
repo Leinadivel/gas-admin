@@ -1,19 +1,38 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
+function isAdminRootPath(pathname: string) {
+  // ✅ Your admin app is at root (A)
+  // Add/remove items here to match your actual admin routes
+  const adminRoots = [
+    '/login',
+    '/dashboard',
+    '/vendors',
+    '/payouts',
+    '/transactions',
+    '/settings',
+    '/orders',
+    '/users',
+  ]
+  return adminRoots.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
+function isVendorPath(pathname: string) {
+  return pathname.startsWith('/vendor')
+}
+
+function isDriverPath(pathname: string) {
+  return pathname.startsWith('/driver')
+}
+
 function isProtectedPath(pathname: string) {
-  return (
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/vendor') ||
-    pathname.startsWith('/driver')
-  )
+  return isAdminRootPath(pathname) || isVendorPath(pathname) || isDriverPath(pathname)
 }
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
   const pathname = req.nextUrl.pathname
 
-  // Only run checks on protected areas
   if (!isProtectedPath(pathname)) return res
 
   const supabase = createServerClient(
@@ -25,9 +44,9 @@ export async function middleware(req: NextRequest) {
           return req.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }) => {
             res.cookies.set(name, value, options)
-          )
+          })
         },
       },
     }
@@ -40,14 +59,16 @@ export async function middleware(req: NextRequest) {
   // Not logged in → send to correct login page
   if (!user) {
     const url = req.nextUrl.clone()
-    if (pathname.startsWith('/admin')) url.pathname = '/admin/login'
-    else if (pathname.startsWith('/vendor')) url.pathname = '/vendor/login'
-    else if (pathname.startsWith('/driver')) url.pathname = '/driver/login'
+
+    if (isVendorPath(pathname)) url.pathname = '/vendor/login'
+    else if (isDriverPath(pathname)) url.pathname = '/driver/login'
+    else url.pathname = '/login' // admin root login
+
     url.searchParams.set('next', pathname)
     return NextResponse.redirect(url)
   }
 
-  // Fetch role from profiles (RLS should allow id=auth.uid())
+  // Read role
   const { data: profile } = await supabase
     .from('profiles')
     .select('role,is_admin')
@@ -57,8 +78,8 @@ export async function middleware(req: NextRequest) {
   const role = profile?.role ?? null
   const isAdmin = profile?.is_admin === true
 
-  // ✅ Admin routes: allow only admins
-  if (pathname.startsWith('/admin')) {
+  // ✅ Admin root routes: ONLY admins
+  if (isAdminRootPath(pathname)) {
     if (!isAdmin) {
       const url = req.nextUrl.clone()
       url.pathname = role === 'vendor' ? '/vendor/dashboard' : '/'
@@ -67,21 +88,21 @@ export async function middleware(req: NextRequest) {
     return res
   }
 
-  // ✅ Vendor routes: allow only vendors
-  if (pathname.startsWith('/vendor')) {
+  // ✅ Vendor routes: ONLY vendors (admins may be redirected to admin dashboard)
+  if (isVendorPath(pathname)) {
     if (role !== 'vendor') {
       const url = req.nextUrl.clone()
-      url.pathname = isAdmin ? '/admin/dashboard' : '/'
+      url.pathname = isAdmin ? '/dashboard' : '/'
       return NextResponse.redirect(url)
     }
     return res
   }
 
-  // ✅ Driver routes: allow only drivers (if you use this role)
-  if (pathname.startsWith('/driver')) {
+  // ✅ Driver routes (if you use this role)
+  if (isDriverPath(pathname)) {
     if (role !== 'driver') {
       const url = req.nextUrl.clone()
-      url.pathname = isAdmin ? '/admin/dashboard' : '/'
+      url.pathname = isAdmin ? '/dashboard' : '/'
       return NextResponse.redirect(url)
     }
     return res
@@ -91,5 +112,19 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/vendor/:path*', '/driver/:path*'],
+  matcher: [
+    // Admin root routes (A)
+    '/login',
+    '/dashboard/:path*',
+    '/vendors/:path*',
+    '/payouts/:path*',
+    '/transactions/:path*',
+    '/settings/:path*',
+    '/orders/:path*',
+    '/users/:path*',
+
+    // Vendor + Driver
+    '/vendor/:path*',
+    '/driver/:path*',
+  ],
 }
