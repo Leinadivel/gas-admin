@@ -10,6 +10,7 @@ type VendorRow = {
   profile_id: string | null
   user_id: string | null
   wallet_balance: number | null
+  created_at?: string | null
 }
 
 export default function VendorDashboardPage() {
@@ -30,6 +31,7 @@ export default function VendorDashboardPage() {
       setError(null)
 
       const { data: userData, error: userErr } = await supabase.auth.getUser()
+
       if (userErr) {
         if (mounted) {
           setError(userErr.message)
@@ -39,6 +41,7 @@ export default function VendorDashboardPage() {
       }
 
       const authId = userData.user?.id
+
       if (!authId) {
         if (mounted) {
           setError('Not logged in')
@@ -47,12 +50,12 @@ export default function VendorDashboardPage() {
         return
       }
 
-      // ✅ Vendors-only lookup that matches your real data
-      const { data: vendorRow, error: vendorErr } = await supabase
+      // 🔥 SAFE LOOKUP (handles duplicates gracefully)
+      const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
-        .select('id,business_name,profile_id,user_id,wallet_balance')
-        .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
-        .maybeSingle()
+        .select('id,business_name,profile_id,user_id,wallet_balance,created_at')
+        .or(`profile_id.eq.${authId},user_id.eq.${authId},id.eq.${authId}`)
+        .order('created_at', { ascending: false })
 
       if (!mounted) return
 
@@ -62,33 +65,40 @@ export default function VendorDashboardPage() {
         return
       }
 
-      if (!vendorRow) {
+      const rows = (vendorRows ?? []) as VendorRow[]
+
+      if (!rows.length) {
         setError('Vendor profile not found for this account.')
         setLoading(false)
         return
       }
 
-      const v = vendorRow as VendorRow
-      setVendor(v)
+      // Prefer correct schema match
+      const vendorRow =
+        rows.find((r) => r.profile_id === authId) ??
+        rows.find((r) => r.user_id === authId) ??
+        rows[0]
 
-      // Counts (real tables)
+      setVendor(vendorRow)
+
+      // 🔢 Counts
       const [staffRes, vehiclesRes, ordersRes] = await Promise.all([
         supabase
           .from('vendor_staff')
           .select('id', { count: 'exact', head: true })
-          .eq('vendor_id', v.id)
+          .eq('vendor_id', vendorRow.id)
           .eq('is_active', true),
 
         supabase
           .from('vendor_vehicles')
           .select('id', { count: 'exact', head: true })
-          .eq('vendor_id', v.id)
+          .eq('vendor_id', vendorRow.id)
           .eq('is_active', true),
 
         supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
-          .eq('vendor_id', v.id)
+          .eq('vendor_id', vendorRow.id)
           .in('status', ['pending', 'accepted', 'enroute', 'arrived', 'awaiting_payment']),
       ])
 
@@ -106,6 +116,7 @@ export default function VendorDashboardPage() {
     }
 
     load()
+
     return () => {
       mounted = false
     }
@@ -120,12 +131,14 @@ export default function VendorDashboardPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">
-            {vendor?.business_name ? vendor.business_name : 'Vendor Dashboard'}
+            {vendor?.business_name ?? 'Vendor Dashboard'}
           </h1>
           <p className="text-sm opacity-70">Overview</p>
         </div>
 
-        <div className="text-xs opacity-60">{loading ? 'Loading…' : 'Ready'}</div>
+        <div className="text-xs opacity-60">
+          {loading ? 'Loading…' : 'Ready'}
+        </div>
       </div>
 
       {error ? (
@@ -171,7 +184,10 @@ function StatCard({
   hint?: string
 }) {
   return (
-    <Link href={href} className="block rounded-xl border bg-white p-4 hover:bg-gray-50 transition-colors">
+    <Link
+      href={href}
+      className="block rounded-xl border bg-white p-4 hover:bg-gray-50 transition-colors"
+    >
       <div className="text-sm opacity-70">{label}</div>
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       {hint ? <div className="mt-1 text-xs opacity-60">{hint}</div> : null}

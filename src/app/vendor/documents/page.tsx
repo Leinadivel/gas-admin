@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase/client'
 
 const BUCKET = 'vendor-documents'
 
-type VendorRow = { id: string; business_name: string | null }
+type VendorRow = { id: string; business_name: string | null; profile_id?: string | null; user_id?: string | null; created_at?: string | null }
 
 type VehicleRow = { id: string; label: string | null; plate_number: string | null }
 
@@ -89,12 +89,12 @@ export default function VendorDocumentsPage() {
         return
       }
 
-      // vendor
-      const { data: vendorRow, error: vendorErr } = await supabase
+      // ✅ SAFE vendor lookup (prevents "JSON object requested..." even if duplicates exist)
+      const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
-        .select('id,business_name')
-        .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
-        .maybeSingle()
+        .select('id,business_name,profile_id,user_id,created_at')
+        .or(`profile_id.eq.${authId},user_id.eq.${authId},id.eq.${authId}`)
+        .order('created_at', { ascending: false })
 
       if (!mounted) return
 
@@ -103,20 +103,27 @@ export default function VendorDocumentsPage() {
         setLoading(false)
         return
       }
+
+      const rows = (vendorRows ?? []) as VendorRow[]
+      const vendorRow =
+        rows.find((r) => r.profile_id === authId) ??
+        rows.find((r) => r.user_id === authId) ??
+        rows[0] ??
+        null
+
       if (!vendorRow) {
         setError('Vendor profile not found.')
         setLoading(false)
         return
       }
 
-      const v = vendorRow as VendorRow
-      setVendor(v)
+      setVendor(vendorRow)
 
       // vehicles (for vehicle-doc uploads + labeling)
       const vehiclesRes = await supabase
         .from('vendor_vehicles')
         .select('id,label,plate_number')
-        .eq('vendor_id', v.id)
+        .eq('vendor_id', vendorRow.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(200)
@@ -126,10 +133,11 @@ export default function VendorDocumentsPage() {
         supabase
           .from('vendor_business_documents')
           .select('id,vendor_id,doc_type,file_path,status,submitted_at,reviewed_at,rejection_reason,expires_at')
-          .eq('vendor_id', v.id)
+          .eq('vendor_id', vendorRow.id)
           .order('submitted_at', { ascending: false })
           .limit(200),
 
+        // RLS should filter to this vendor’s vehicles
         supabase
           .from('vendor_vehicle_documents')
           .select('id,vehicle_id,doc_type,file_path,status,submitted_at,reviewed_at,rejection_reason,expires_at')
@@ -145,7 +153,6 @@ export default function VendorDocumentsPage() {
       if (bizRes.error) setError((p) => p ?? bizRes.error!.message)
       setBusinessDocs((bizRes.data ?? []) as BusinessDocRow[])
 
-      // Vehicle docs list will be RLS-filtered to this vendor’s vehicles (based on policy)
       if (vehRes.error) setError((p) => p ?? vehRes.error!.message)
       setVehicleDocs((vehRes.data ?? []) as VehicleDocRow[])
 
@@ -255,7 +262,6 @@ export default function VendorDocumentsPage() {
   }
 
   const getSignedUrl = async (path: string) => {
-    // Signed URLs work regardless of bucket public/private
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60)
     if (error) throw error
     return data.signedUrl
@@ -275,9 +281,7 @@ export default function VendorDocumentsPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Documents</h1>
-          <p className="text-sm opacity-70">
-            {vendor?.business_name ?? 'Vendor'} compliance uploads
-          </p>
+          <p className="text-sm opacity-70">{vendor?.business_name ?? 'Vendor'} compliance uploads</p>
         </div>
 
         <div className="inline-flex rounded-md border bg-white overflow-hidden">
@@ -314,11 +318,8 @@ export default function VendorDocumentsPage() {
         </div>
       ) : null}
 
-      {/* Upload box */}
       <div className="rounded-xl border bg-white p-4 space-y-4 max-w-2xl">
-        <div className="text-sm font-medium">
-          Upload {tab === 'business' ? 'business' : 'vehicle'} document
-        </div>
+        <div className="text-sm font-medium">Upload {tab === 'business' ? 'business' : 'vehicle'} document</div>
 
         {tab === 'vehicle' ? (
           <div className="space-y-2">
@@ -382,12 +383,9 @@ export default function VendorDocumentsPage() {
         </button>
       </div>
 
-      {/* Lists */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border bg-white p-4">
-          <div className="text-sm font-medium">
-            {tab === 'business' ? 'Business documents' : 'Vehicle documents'}
-          </div>
+          <div className="text-sm font-medium">{tab === 'business' ? 'Business documents' : 'Vehicle documents'}</div>
 
           <div className="mt-3 divide-y">
             {loading ? (
@@ -435,15 +433,9 @@ export default function VendorDocumentsPage() {
         <div className="rounded-xl border bg-white p-4">
           <div className="text-sm font-medium">How review works</div>
           <div className="mt-2 text-sm opacity-70 space-y-2">
-            <p>
-              Uploads start as <b>pending</b>.
-            </p>
-            <p>
-              Admin reviews and sets <b>approved</b> or <b>rejected</b> (with a reason).
-            </p>
-            <p>
-              If rejected, re-upload the corrected document.
-            </p>
+            <p>Uploads start as <b>pending</b>.</p>
+            <p>Admin reviews and sets <b>approved</b> or <b>rejected</b> (with a reason).</p>
+            <p>If rejected, re-upload the corrected document.</p>
           </div>
         </div>
       </div>
@@ -481,9 +473,7 @@ function DocRow({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs rounded-md border px-2 py-1 bg-white">
-            {status ?? '—'}
-          </span>
+          <span className="text-xs rounded-md border px-2 py-1 bg-white">{status ?? '—'}</span>
           <button
             onClick={onOpen}
             className="rounded-md border bg-white px-3 py-2 text-xs hover:bg-gray-50"
