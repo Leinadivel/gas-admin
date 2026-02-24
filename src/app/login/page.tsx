@@ -4,10 +4,9 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 
-function LoginInner() {
+function AdminLoginInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-
   const next = searchParams.get('next') || '/dashboard'
 
   const [email, setEmail] = useState('')
@@ -34,23 +33,19 @@ function LoginInner() {
       if (userErr) throw userErr
       if (!user) throw new Error('No session found')
 
-      const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('role,is_admin')
-        .eq('id', user.id)
+      // ✅ Admin = exists in admin_users
+      const { data: adminRow, error: adminErr } = await supabase
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', user.id)
         .maybeSingle()
 
-      if (profileErr) throw profileErr
+      if (adminErr) throw adminErr
 
-      const isAdmin = profile?.is_admin === true
-
-      if (!isAdmin) {
+      if (!adminRow) {
         await supabase.auth.signOut()
-        if (profile?.role === 'vendor') {
-          router.replace('/vendor/login')
-          return
-        }
-        throw new Error('Access denied. This login is for admins only.')
+        router.replace('/vendor/login')
+        return
       }
 
       router.replace(next)
@@ -65,9 +60,7 @@ function LoginInner() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-xl border p-6 shadow-sm bg-white">
         <h1 className="text-xl font-semibold">Admin Login</h1>
-        <p className="mt-1 text-sm opacity-70">
-          Sign in to manage orders, vendors, and transactions.
-        </p>
+        <p className="mt-1 text-sm opacity-70">Sign in to manage the platform.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
@@ -77,7 +70,6 @@ function LoginInner() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@company.com"
               autoComplete="email"
               required
             />
@@ -90,7 +82,6 @@ function LoginInner() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
               autoComplete="current-password"
               required
             />
@@ -118,7 +109,7 @@ function LoginInner() {
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading…</div>}>
-      <LoginInner />
+      <AdminLoginInner />
     </Suspense>
   )
 }
