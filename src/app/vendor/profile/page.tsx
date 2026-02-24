@@ -14,9 +14,16 @@ type VendorRow = {
   paystack_recipient_code: string | null
 }
 
+type PaystackBank = {
+  name: string
+  code: string
+  active?: boolean
+}
+
 export default function VendorProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [resolving, setResolving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -28,6 +35,12 @@ export default function VendorProfilePage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState('')
 
+  // Paystack banks UI
+  const [banks, setBanks] = useState<PaystackBank[]>([])
+  const [banksLoaded, setBanksLoaded] = useState(false)
+  const [bankOpen, setBankOpen] = useState(false)
+  const [bankQuery, setBankQuery] = useState('')
+
   const missing = useMemo(() => {
     const m: string[] = []
     if (!bankCode.trim()) m.push('bank_code')
@@ -35,6 +48,15 @@ export default function VendorProfilePage() {
     if (!accountName.trim()) m.push('account_name')
     return m
   }, [bankCode, accountNumber, accountName])
+
+  const filteredBanks = useMemo(() => {
+    const q = bankQuery.trim().toLowerCase()
+    const list = banks.filter(b => (b.active ?? true) !== false)
+    if (!q) return list.slice(0, 25)
+    return list
+      .filter(b => b.name.toLowerCase().includes(q))
+      .slice(0, 25)
+  }, [banks, bankQuery])
 
   useEffect(() => {
     let mounted = true
@@ -61,7 +83,6 @@ export default function VendorProfilePage() {
         return
       }
 
-      // ✅ FIX: vendors row is linked by profile_id = auth user id
       const { data, error } = await supabase
         .from('vendors')
         .select('id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
@@ -100,6 +121,64 @@ export default function VendorProfilePage() {
     }
   }, [])
 
+  // ✅ Fetch banks from backend (server uses Paystack secret)
+  const loadBanks = async () => {
+    if (banksLoaded) return
+    try {
+      setError(null)
+      const res = await fetch('/api/paystack/banks', { method: 'GET' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Failed to load banks')
+      setBanks(Array.isArray(json?.banks) ? json.banks : [])
+      setBanksLoaded(true)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load banks')
+    }
+  }
+
+  // ✅ Resolve account name (server-side)
+  const resolveAccountName = async (bank_code: string, account_number: string) => {
+    if (!bank_code || account_number.length !== 10) return
+    setResolving(true)
+    setError(null)
+    setNotice(null)
+
+    try {
+      const res = await fetch('/api/paystack/resolve-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bank_code, account_number }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Could not resolve account')
+
+      const name = String(json?.account_name || '').trim()
+      if (!name) throw new Error('Account name not returned')
+      setAccountName(name)
+      setNotice('Account verified ✅')
+    } catch (e: any) {
+      // Don’t block saving, but show error
+      setAccountName('')
+      setError(e?.message ?? 'Account resolution failed')
+    } finally {
+      setResolving(false)
+    }
+  }
+
+  // Auto resolve when bankCode + 10-digit accountNumber ready
+  useEffect(() => {
+    const code = bankCode.trim()
+    const acc = accountNumber.replace(/\D/g, '').slice(0, 10)
+
+    // keep state sanitized
+    if (acc !== accountNumber) setAccountNumber(acc)
+
+    if (!code || acc.length !== 10) return
+    // Only resolve if user hasn’t manually typed accountName or it’s empty
+    resolveAccountName(code, acc)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankCode])
+
   const save = async () => {
     if (!vendor) return
     setSaving(true)
@@ -120,11 +199,8 @@ export default function VendorProfilePage() {
         account_name: accountName.trim() || null,
       }
 
-      if (bankChanged) {
-        patch.paystack_recipient_code = null
-      }
+      if (bankChanged) patch.paystack_recipient_code = null
 
-      // ✅ Update by vendor row id (correct)
       const { data, error } = await supabase
         .from('vendors')
         .update(patch)
@@ -141,6 +217,17 @@ export default function VendorProfilePage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const onPickBank = (b: PaystackBank) => {
+    setBankName(b.name)
+    setBankCode(b.code)
+    setBankOpen(false)
+    setBankQuery('')
+    setAccountName('') // will be resolved again
+    // Resolve when account number is ready (10 digits)
+    const acc = accountNumber.trim()
+    if (acc.length === 10) resolveAccountName(b.code, acc)
   }
 
   return (
@@ -170,15 +257,84 @@ export default function VendorProfilePage() {
         <div className="rounded-xl border bg-white p-4 space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Business name" value={businessName} onChange={setBusinessName} />
-            <Field label="Bank name" value={bankName} onChange={setBankName} />
-            <Field label="Bank code (Paystack)" value={bankCode} onChange={setBankCode} />
-            <Field label="Account number" value={accountNumber} onChange={setAccountNumber} />
-            <Field label="Account name" value={accountName} onChange={setAccountName} />
+
+            {/* ✅ Bank dropdown */}
+            <div className="space-y-1 relative">
+              <div className="text-sm font-medium">Bank name</div>
+              <input
+                value={bankName}
+                onFocus={async () => {
+                  await loadBanks()
+                  setBankOpen(true)
+                }}
+                onChange={(e) => {
+                  setBankName(e.target.value)
+                  setBankQuery(e.target.value)
+                  setBankOpen(true)
+                }}
+                placeholder="Select bank"
+                className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+              />
+
+              {bankOpen ? (
+                <div className="absolute z-20 mt-1 w-full rounded-md border bg-white shadow-sm max-h-64 overflow-auto">
+                  <div className="px-3 py-2 text-xs opacity-70 border-b">
+                    {banksLoaded ? 'Select a bank' : 'Loading banks…'}
+                  </div>
+
+                  {filteredBanks.map((b) => (
+                    <button
+                      key={b.code}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                      onClick={() => onPickBank(b)}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+
+                  {!filteredBanks.length ? (
+                    <div className="px-3 py-3 text-sm opacity-70">No banks found</div>
+                  ) : null}
+
+                  <div className="px-3 py-2 border-t">
+                    <button
+                      type="button"
+                      className="text-xs underline opacity-70"
+                      onClick={() => setBankOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <Field label="Bank code (Paystack)" value={bankCode} onChange={setBankCode} disabled />
+
+            <Field
+              label="Account number"
+              value={accountNumber}
+              onChange={(v) => {
+                const clean = v.replace(/\D/g, '').slice(0, 10)
+                setAccountNumber(clean)
+                setAccountName('')
+                setNotice(null)
+                if (bankCode.trim() && clean.length === 10) resolveAccountName(bankCode.trim(), clean)
+              }}
+            />
+
+            <Field
+              label="Account name"
+              value={accountName}
+              onChange={setAccountName}
+              disabled
+              rightHint={resolving ? 'Verifying…' : ''}
+            />
           </div>
 
           <div className="text-xs opacity-70">
-            Recipient code:{' '}
-            <span className="font-mono">{vendor.paystack_recipient_code ?? '—'}</span>
+            Recipient code: <span className="font-mono">{vendor.paystack_recipient_code ?? '—'}</span>
           </div>
 
           {missing.length ? (
@@ -204,18 +360,26 @@ function Field({
   label,
   value,
   onChange,
+  disabled,
+  rightHint,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
+  disabled?: boolean
+  rightHint?: string
 }) {
   return (
     <label className="space-y-1">
-      <div className="text-sm font-medium">{label}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium">{label}</div>
+        {rightHint ? <div className="text-xs opacity-70">{rightHint}</div> : null}
+      </div>
       <input
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+        className="w-full rounded-md border bg-white px-3 py-2 text-sm disabled:opacity-60"
       />
     </label>
   )
