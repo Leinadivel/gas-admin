@@ -7,9 +7,13 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code')
   const next = url.searchParams.get('next') ?? '/dashboard'
 
-  if (!code) return NextResponse.redirect(new URL('/login', url.origin))
+  if (!code) {
+    return NextResponse.redirect(new URL('/login', url.origin))
+  }
 
-  const cookieStore = cookies()
+  // ✅ Next 16: cookies() can be async here
+  const cookieStore = await cookies()
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
