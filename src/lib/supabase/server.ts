@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 
-export function supabaseServer() {
-  const cookieStore = cookies()
+export async function supabaseServer() {
+  const cookieStore = await cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,14 +13,14 @@ export function supabaseServer() {
           return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
-          // In Server Components, setting cookies is limited.
-          // This method is mainly needed in Route Handlers / Middleware.
+          // In Server Components, setting cookies may be restricted.
+          // It's safe to try and ignore failures.
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
             })
           } catch {
-            // ignore if not allowed in this context
+            // ignore
           }
         },
       },

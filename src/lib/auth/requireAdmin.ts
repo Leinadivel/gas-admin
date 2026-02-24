@@ -2,19 +2,21 @@ import { redirect } from 'next/navigation'
 import { supabaseServer } from '@/lib/supabase/server'
 
 export async function requireAdmin() {
-  const supabase = supabaseServer()
+  const supabase = await supabaseServer()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) redirect('/login')
 
-  // 1) profiles flag
   const { data: profile } = await supabase
     .from('profiles')
     .select('role,is_admin')
     .eq('id', user.id)
     .maybeSingle()
 
-  // 2) admin_users fallback
+  // fallback if you also use admin_users
   const { data: adminRow } = await supabase
     .from('admin_users')
     .select('user_id')
