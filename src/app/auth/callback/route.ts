@@ -1,36 +1,33 @@
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
-export async function GET(req: NextRequest) {
-  const url = req.nextUrl
+export async function GET(request: Request) {
+  const url = new URL(request.url)
   const code = url.searchParams.get('code')
-  const next = url.searchParams.get('next') || '/dashboard'
+  const next = url.searchParams.get('next') ?? '/dashboard'
 
-  // Prepare response (so cookies can be set)
-  const res = NextResponse.redirect(new URL(next, url.origin))
+  if (!code) return NextResponse.redirect(new URL('/login', url.origin))
 
+  const cookieStore = cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return req.cookies.getAll()
+          return cookieStore.getAll()
         },
-        setAll(cookies) {
-          cookies.forEach(({ name, value, options }) => {
-            res.cookies.set(name, value, options)
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
           })
         },
       },
     }
   )
 
-  // If Supabase sent an auth code, exchange it for a session and set cookies
-  if (code) {
-    await supabase.auth.exchangeCodeForSession(code)
-  }
+  await supabase.auth.exchangeCodeForSession(code)
 
-  return res
+  return NextResponse.redirect(new URL(next, url.origin))
 }

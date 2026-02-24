@@ -12,8 +12,16 @@ export function supabaseServer() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll() {
-          // no-op in server components
+        setAll(cookiesToSet) {
+          // In Server Components, setting cookies is limited.
+          // This method is mainly needed in Route Handlers / Middleware.
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options)
+            })
+          } catch {
+            // ignore if not allowed in this context
+          }
         },
       },
     }
