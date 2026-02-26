@@ -17,6 +17,9 @@ type StaffRow = {
 type VendorRow = {
   id: string
   business_name: string | null
+  profile_id?: string | null
+  user_id?: string | null
+  created_at?: string | null
 }
 
 export default function VendorDriversPage() {
@@ -45,6 +48,7 @@ export default function VendorDriversPage() {
       setLoading(true)
       setError(null)
 
+      // Auth
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) {
         if (mounted) {
@@ -63,12 +67,12 @@ export default function VendorDriversPage() {
         return
       }
 
-      // Get vendor row (same logic as dashboard)
-      const { data: vendorRow, error: vendorErr } = await supabase
+      // ✅ SAFE vendor lookup (NO maybeSingle)
+      const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
-        .select('id,business_name')
-        .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
-        .maybeSingle()
+        .select('id,business_name,profile_id,user_id,created_at')
+        .or(`profile_id.eq.${authId},user_id.eq.${authId},id.eq.${authId}`)
+        .order('created_at', { ascending: false })
 
       if (!mounted) return
 
@@ -77,20 +81,27 @@ export default function VendorDriversPage() {
         setLoading(false)
         return
       }
+
+      const rows = (vendorRows ?? []) as VendorRow[]
+      const vendorRow =
+        rows.find((r) => r.profile_id === authId) ??
+        rows.find((r) => r.user_id === authId) ??
+        rows[0] ??
+        null
+
       if (!vendorRow) {
         setError('Vendor profile not found for this account.')
         setLoading(false)
         return
       }
 
-      const v = vendorRow as VendorRow
-      setVendor(v)
+      setVendor(vendorRow)
 
-      // Load staff/drivers
+      // Staff list
       const { data: staffRows, error: staffErr } = await supabase
         .from('vendor_staff')
         .select('id,vendor_id,user_id,role,vehicle_id,is_active,created_at')
-        .eq('vendor_id', v.id)
+        .eq('vendor_id', vendorRow.id)
         .order('created_at', { ascending: false })
         .limit(200)
 

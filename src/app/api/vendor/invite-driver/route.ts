@@ -29,9 +29,8 @@ export async function POST(req: Request) {
           getAll() {
             return cookieStore.getAll()
           },
-          setAll(cookiesToSet) {
-            // route handlers can set cookies via NextResponse; we don't need it here
-            // keep function to satisfy API
+          setAll() {
+            // not needed in this handler
           },
         },
       }
@@ -48,16 +47,22 @@ export async function POST(req: Request) {
 
     const authId = user.id
 
-    // 2) Find the vendor company row for this logged-in vendor
-    const { data: vendorRow, error: vendorErr } = await supabase
+    // 2) Find vendor row (NO .single / .maybeSingle)
+    const { data: vendorRows, error: vendorErr } = await supabase
       .from('vendors')
-      .select('id')
-      .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
-      .maybeSingle()
+      .select('id, profile_id, user_id, created_at')
+      .or(`profile_id.eq.${authId},user_id.eq.${authId},id.eq.${authId}`)
+      .order('created_at', { ascending: false })
 
     if (vendorErr) {
       return NextResponse.json({ error: vendorErr.message }, { status: 400 })
     }
+
+    const vendorRow =
+      vendorRows?.find((r) => r.profile_id === authId) ??
+      vendorRows?.find((r) => r.user_id === authId) ??
+      vendorRows?.[0] ??
+      null
 
     if (!vendorRow) {
       return NextResponse.json(
@@ -75,15 +80,26 @@ export async function POST(req: Request) {
       )
     }
 
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceKey,
-      { auth: { persistSession: false } }
-    )
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
+      auth: { persistSession: false },
+    })
 
-    // Invite user by email (Supabase sends them an email to set password)
+    // 4) Redirect URL for invite -> callback -> driver invite page
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+
+    if (!siteUrl) {
+      return NextResponse.json(
+        { error: 'Missing NEXT_PUBLIC_SITE_URL (or VERCEL_URL).' },
+        { status: 500 }
+      )
+    }
+
+    const redirectTo = `${siteUrl}/auth/callback?next=/driver/invite`
+
     const { data: inviteData, error: inviteErr } =
-      await admin.auth.admin.inviteUserByEmail(email)
+      await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
 
     if (inviteErr) {
       return NextResponse.json({ error: inviteErr.message }, { status: 400 })
@@ -97,8 +113,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // 4) Link driver to vendor
-    // Note: "invited_by" exists in your schema; use vendor auth id
+    // 5) Create vendor_staff record
     const { error: linkErr } = await admin.from('vendor_staff').insert({
       vendor_id: vendorRow.id,
       user_id: driverUserId,

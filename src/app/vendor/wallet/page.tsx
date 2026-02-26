@@ -9,6 +9,9 @@ type VendorRow = {
   business_name: string | null
   wallet_balance: number | null
   balance: number | null
+  profile_id?: string | null
+  user_id?: string | null
+  created_at?: string | null
 }
 
 type TxRow = {
@@ -86,12 +89,12 @@ export default function VendorWalletPage() {
         return
       }
 
-      // vendor
-      const { data: vendorRow, error: vendorErr } = await supabase
+      // ✅ SAFE vendor lookup (NO maybeSingle)
+      const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
-        .select('id,business_name,wallet_balance,balance')
-        .or(`id.eq.${authId},user_id.eq.${authId},profile_id.eq.${authId}`)
-        .maybeSingle()
+        .select('id,business_name,wallet_balance,balance,profile_id,user_id,created_at')
+        .or(`profile_id.eq.${authId},user_id.eq.${authId},id.eq.${authId}`)
+        .order('created_at', { ascending: false })
 
       if (!mounted) return
 
@@ -100,28 +103,35 @@ export default function VendorWalletPage() {
         setLoading(false)
         return
       }
+
+      const rows = (vendorRows ?? []) as VendorRow[]
+      const vendorRow =
+        rows.find((r) => r.profile_id === authId) ??
+        rows.find((r) => r.user_id === authId) ??
+        rows[0] ??
+        null
+
       if (!vendorRow) {
         setError('Vendor profile not found.')
         setLoading(false)
         return
       }
 
-      const v = vendorRow as VendorRow
-      setVendor(v)
+      setVendor(vendorRow)
 
       // transactions + payout requests
       const [txRes, payoutRes] = await Promise.all([
         supabase
           .from('transactions')
           .select('id,vendor_id,order_id,amount,type,status,created_at')
-          .eq('vendor_id', v.id)
+          .eq('vendor_id', vendorRow.id)
           .order('created_at', { ascending: false })
           .limit(200),
 
         supabase
           .from('vendor_payout_requests')
           .select('id,vendor_id,amount,status,requested_at,reviewed_at,rejection_reason,paystack_reference')
-          .eq('vendor_id', v.id)
+          .eq('vendor_id', vendorRow.id)
           .order('requested_at', { ascending: false })
           .limit(200),
       ])
@@ -175,7 +185,6 @@ export default function VendorWalletPage() {
       return
     }
 
-    // simple guard
     if (amt > wallet) {
       setError(`Insufficient wallet balance. Available: ₦${wallet.toLocaleString()}`)
       return
@@ -238,7 +247,11 @@ export default function VendorWalletPage() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Wallet balance" value={loading ? '…' : `₦${wallet.toLocaleString()}`} hint="Withdraw uses wallet_balance" />
+        <StatCard
+          label="Wallet balance"
+          value={loading ? '…' : `₦${wallet.toLocaleString()}`}
+          hint="Withdraw uses wallet_balance"
+        />
         <StatCard label="Balance" value={loading ? '…' : `₦${balance.toLocaleString()}`} hint="Optional/internal" />
         <StatCard label="Credits (sum)" value={loading ? '…' : `₦${Math.round(totals.credit).toLocaleString()}`} />
         <StatCard label="Debits (sum)" value={loading ? '…' : `₦${Math.round(totals.debit).toLocaleString()}`} />
