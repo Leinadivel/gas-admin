@@ -102,7 +102,10 @@ export async function POST(req: Request) {
       await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
 
     if (inviteErr) {
-      return NextResponse.json({ error: inviteErr.message }, { status: 400 })
+      return NextResponse.json(
+        { error: inviteErr.message, redirectTo },
+        { status: 400 }
+      )
     }
 
     const driverUserId = inviteData.user?.id
