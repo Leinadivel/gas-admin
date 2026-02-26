@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     })
 
     // 4) Redirect URL for invite -> callback -> driver invite page
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL
 
     if (!siteUrl) {
       return NextResponse.json(
