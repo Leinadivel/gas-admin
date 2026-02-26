@@ -96,7 +96,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const redirectTo = `${siteUrl}/auth/callback?next=/driver/invite`
+    const redirectTo = `${siteUrl}/auth/callback`
 
     const { data: inviteData, error: inviteErr } =
       await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
