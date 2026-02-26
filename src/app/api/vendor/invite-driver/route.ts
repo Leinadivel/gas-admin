@@ -85,9 +85,7 @@ export async function POST(req: Request) {
     })
 
     // 4) Redirect URL for invite -> callback -> driver invite page
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
 
     if (!siteUrl) {
       return NextResponse.json(
