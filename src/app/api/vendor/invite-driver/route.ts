@@ -127,7 +127,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: linkErr.message }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, redirectTo })
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message ?? 'Unknown error' },
