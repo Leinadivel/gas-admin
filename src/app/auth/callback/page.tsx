@@ -11,72 +11,65 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const run = async () => {
       try {
-        // Hash fragment contains access_token, refresh_token, etc.
+        // 1) If Supabase returns tokens in hash, handle on client
         const hash = window.location.hash
-        if (!hash || hash.length < 2) {
-          // If no hash, fallback to server handler route (handles ?code or ?token_hash)
-          router.replace('/auth/callback') // hits route.ts
-          return
+        if (hash && hash.length > 1) {
+          const params = new URLSearchParams(hash.slice(1))
+          const access_token = params.get('access_token')
+          const refresh_token = params.get('refresh_token')
+
+          if (access_token && refresh_token) {
+            const supabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            )
+
+            const { error: setErr } = await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            })
+
+            if (setErr) {
+              router.replace('/login')
+              return
+            }
+
+            const {
+              data: { user },
+            } = await supabase.auth.getUser()
+
+            if (!user?.id) {
+              router.replace('/login')
+              return
+            }
+
+            const { data: staffRows } = await supabase
+              .from('vendor_staff')
+              .select('id, role, is_active')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+
+            const staff = staffRows?.[0] ?? null
+            if (
+              staff &&
+              staff.is_active === true &&
+              (staff.role === 'driver' || staff.role === 'dispatcher' || staff.role === 'manager')
+            ) {
+              router.replace('/driver/invite')
+              return
+            }
+
+            router.replace('/dashboard')
+            return
+          }
         }
 
-        const params = new URLSearchParams(hash.slice(1))
-        const access_token = params.get('access_token')
-        const refresh_token = params.get('refresh_token')
-
-        if (!access_token || !refresh_token) {
-          setMsg('Missing session tokens. Please try the link again.')
-          router.replace('/login')
-          return
-        }
-
-        // Use anon client (browser) to set session
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
-
-        const { error: setErr } = await supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        })
-
-        if (setErr) {
-          setMsg(setErr.message)
-          router.replace('/login')
-          return
-        }
-
-        // Now we have a session, detect driver
-        const {
-          data: { user },
-          error: userErr,
-        } = await supabase.auth.getUser()
-
-        if (userErr || !user?.id) {
-          router.replace('/login')
-          return
-        }
-
-        const { data: staffRows } = await supabase
-          .from('vendor_staff')
-          .select('id, role, is_active')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        const staff = staffRows?.[0] ?? null
-        if (
-          staff &&
-          staff.is_active === true &&
-          (staff.role === 'driver' || staff.role === 'dispatcher' || staff.role === 'manager')
-        ) {
-          router.replace('/driver/invite')
-          return
-        }
-
-        // Default
-        router.replace('/dashboard')
-      } catch (e: any) {
+        // 2) Otherwise, delegate to server handler for code/token_hash flows
+        // Keep the current query string
+        const qs = window.location.search || ''
+        window.location.replace(`/auth/callback/server${qs}`)
+      } catch {
         router.replace('/login')
       }
     }
