@@ -85,19 +85,25 @@ export async function POST(req: Request) {
     })
 
     // 4) Redirect URL for invite -> callback -> driver invite page
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL
+    // Use your production app URL (gas-admin.vercel.app)
+    const siteUrl =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
 
     if (!siteUrl) {
       return NextResponse.json(
-        { error: 'Missing NEXT_PUBLIC_SITE_URL (or VERCEL_URL).' },
+        { error: 'Missing NEXT_PUBLIC_APP_URL (or NEXT_PUBLIC_SITE_URL / VERCEL_URL).' },
         { status: 500 }
       )
     }
 
     const redirectTo = `${siteUrl}/auth/callback`
 
-    const { data: inviteData, error: inviteErr } =
-      await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
+    const { data: inviteData, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
+      email,
+      { redirectTo }
+    )
 
     if (inviteErr) {
       return NextResponse.json(
@@ -112,6 +118,18 @@ export async function POST(req: Request) {
         { error: 'Invite succeeded but no user id returned.' },
         { status: 500 }
       )
+    }
+
+    // ✅ 4b) Ensure profiles role is correct for driver/staff
+    // (Your auth trigger now defaults new users to role='user', so we override to staff role here.)
+    const { error: profileErr } = await admin.from('profiles').upsert({
+      id: driverUserId,
+      role, // 'driver' | 'dispatcher' | 'manager'
+      is_admin: false,
+    })
+
+    if (profileErr) {
+      return NextResponse.json({ error: profileErr.message }, { status: 400 })
     }
 
     // 5) Create vendor_staff record

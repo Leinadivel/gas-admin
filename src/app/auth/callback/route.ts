@@ -11,15 +11,16 @@ function safeNextPath(nextParam: string | null) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
-  const code = url.searchParams.get('code')
 
-  // keep support for your existing next param (admin/vendor flows)
+  // Supports both flows:
+  // 1) PKCE/OAuth style: ?code=...
+  // 2) Email link / invite style: ?token_hash=...&type=invite|magiclink|recovery|signup
+  const code = url.searchParams.get('code')
+  const token_hash = url.searchParams.get('token_hash')
+  const type = url.searchParams.get('type') // invite, magiclink, recovery, signup, email_change...
+
   const nextRaw = url.searchParams.get('next')
   const nextSafe = safeNextPath(nextRaw)
-
-  if (!code) {
-    return NextResponse.redirect(new URL('/login', url.origin))
-  }
 
   const cookieStore = await cookies()
 
@@ -40,36 +41,57 @@ export async function GET(request: Request) {
     }
   )
 
-  const { error: exErr } = await supabase.auth.exchangeCodeForSession(code)
-  if (exErr) {
+  // ✅ 1) Exchange code (PKCE flow)
+  if (code) {
+    const { error: exErr } = await supabase.auth.exchangeCodeForSession(code)
+    if (exErr) {
+      return NextResponse.redirect(new URL('/login', url.origin))
+    }
+  } else if (token_hash && type) {
+    // ✅ 2) Verify OTP for invite/magiclink flows
+    const { error: verifyErr } = await supabase.auth.verifyOtp({
+      type: type as any,
+      token_hash,
+    })
+
+    if (verifyErr) {
+      return NextResponse.redirect(new URL('/login', url.origin))
+    }
+  } else {
+    // Nothing usable
     return NextResponse.redirect(new URL('/login', url.origin))
   }
 
-  // If caller provided a safe next, respect it (existing behavior)
+  // Respect explicit next param for existing flows
   if (nextSafe) {
     return NextResponse.redirect(new URL(nextSafe, url.origin))
   }
 
-  // Otherwise detect driver invite acceptance:
+  // Detect driver invite acceptance
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (user?.id) {
-    // If this auth user is in vendor_staff, send them to set-password page
-    const { data: staffRows } = await supabase
+    const { data: staffRows, error: staffErr } = await supabase
       .from('vendor_staff')
       .select('id, role, is_active')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
 
-    const staff = staffRows?.[0] ?? null
-    if (staff && (staff.role === 'driver' || staff.role === 'dispatcher' || staff.role === 'manager')) {
-      return NextResponse.redirect(new URL('/driver/invite', url.origin))
+    if (!staffErr) {
+      const staff = staffRows?.[0] ?? null
+      if (
+        staff &&
+        staff.is_active === true &&
+        (staff.role === 'driver' || staff.role === 'dispatcher' || staff.role === 'manager')
+      ) {
+        return NextResponse.redirect(new URL('/driver/invite', url.origin))
+      }
     }
   }
 
-  // Default for everyone else
+  // Default
   return NextResponse.redirect(new URL('/dashboard', url.origin))
 }
