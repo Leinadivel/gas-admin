@@ -45,8 +45,9 @@ export async function GET(request: Request) {
   if (code) {
     const { error: exErr } = await supabase.auth.exchangeCodeForSession(code)
     if (exErr) {
-      return NextResponse.redirect(new URL('/login', url.origin))
-    }
+  const msg = encodeURIComponent(exErr.message)
+  return NextResponse.redirect(new URL(`/driver/invite?error=${msg}`, url.origin))
+}
   } else if (token_hash && type) {
     // ✅ 2) Verify OTP for invite/magiclink flows
     const { error: verifyErr } = await supabase.auth.verifyOtp({
@@ -55,8 +56,9 @@ export async function GET(request: Request) {
     })
 
     if (verifyErr) {
-      return NextResponse.redirect(new URL('/login', url.origin))
-    }
+  const msg = encodeURIComponent(verifyErr.message)
+  return NextResponse.redirect(new URL(`/driver/invite?error=${msg}`, url.origin))
+}
   } else {
     // Nothing usable
     return NextResponse.redirect(new URL('/login', url.origin))
