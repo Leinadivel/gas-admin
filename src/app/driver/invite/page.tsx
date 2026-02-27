@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 
 export default function DriverInviteSetPasswordPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = useMemo(() => {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  }, [])
 
   const [checking, setChecking] = useState(true)
   const [authedEmail, setAuthedEmail] = useState<string | null>(null)
@@ -20,20 +22,46 @@ export default function DriverInviteSetPasswordPage() {
   const [done, setDone] = useState(false)
 
   useEffect(() => {
+    let mounted = true
+
     ;(async () => {
-      setChecking(true)
-      setError(null)
+      try {
+        if (!mounted) return
+        setChecking(true)
+        setError(null)
 
-      const { data, error } = await supabase.auth.getUser()
-      if (error || !data?.user) {
+        // Prefer session check (more reliable), then getUser
+        const { data: sess } = await supabase.auth.getSession()
+        const sessionUser = sess.session?.user ?? null
+
+        if (!sessionUser?.id) {
+          const { data, error } = await supabase.auth.getUser()
+          if (error || !data?.user) {
+            if (!mounted) return
+            setAuthedEmail(null)
+            setChecking(false)
+            return
+          }
+
+          if (!mounted) return
+          setAuthedEmail(data.user.email ?? null)
+          setChecking(false)
+          return
+        }
+
+        if (!mounted) return
+        setAuthedEmail(sessionUser.email ?? null)
         setChecking(false)
+      } catch (e: any) {
+        if (!mounted) return
         setAuthedEmail(null)
-        return
+        setChecking(false)
       }
-
-      setAuthedEmail(data.user.email ?? null)
-      setChecking(false)
     })()
+
+    return () => {
+      mounted = false
+    }
   }, [supabase])
 
   const onSetPassword = async (e: React.FormEvent) => {
@@ -77,8 +105,9 @@ export default function DriverInviteSetPasswordPage() {
     return (
       <div className="max-w-md space-y-3">
         <h1 className="text-2xl font-semibold">Invite link invalid or expired</h1>
-        <p className="text-sm opacity-70">
-          Please ask your vendor to resend the invite.
+        <p className="text-sm opacity-70">Please ask your vendor to resend the invite.</p>
+        <p className="text-xs opacity-60">
+          Tip: open the newest invite email (check the timestamp). Invite links are one-time use.
         </p>
       </div>
     )
@@ -88,9 +117,7 @@ export default function DriverInviteSetPasswordPage() {
     return (
       <div className="max-w-md space-y-3">
         <h1 className="text-2xl font-semibold">Password set ✅</h1>
-        <p className="text-sm opacity-70">
-          You can now log into the Driver app using:
-        </p>
+        <p className="text-sm opacity-70">You can now log into the Driver app using:</p>
 
         <div className="rounded-lg border bg-white p-3 text-sm">
           <div className="font-medium">Email</div>

@@ -1,17 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 export default function AuthCallbackPage() {
   const router = useRouter()
   const [msg, setMsg] = useState('Completing sign-in...')
 
+  const supabase = useMemo(() => {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  }, [])
+
   useEffect(() => {
     const run = async () => {
       try {
-        // 1) If Supabase returns tokens in hash, handle on client
+        // If Supabase returns tokens in hash, handle on client
         const hash = window.location.hash
         if (hash && hash.length > 1) {
           const params = new URLSearchParams(hash.slice(1))
@@ -19,11 +26,6 @@ export default function AuthCallbackPage() {
           const refresh_token = params.get('refresh_token')
 
           if (access_token && refresh_token) {
-            const supabase = createClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            )
-
             const { error: setErr } = await supabase.auth.setSession({
               access_token,
               refresh_token,
@@ -34,19 +36,20 @@ export default function AuthCallbackPage() {
               return
             }
 
-            const {
-              data: { user },
-            } = await supabase.auth.getUser()
+            // ✅ Confirm session exists before routing
+            const { data: sess } = await supabase.auth.getSession()
+            const sessionUserId = sess.session?.user?.id ?? null
 
-            if (!user?.id) {
+            if (!sessionUserId) {
               router.replace('/login')
               return
             }
 
+            // ✅ Driver routing
             const { data: staffRows } = await supabase
               .from('vendor_staff')
               .select('id, role, is_active')
-              .eq('user_id', user.id)
+              .eq('user_id', sessionUserId)
               .order('created_at', { ascending: false })
               .limit(1)
 
@@ -65,8 +68,7 @@ export default function AuthCallbackPage() {
           }
         }
 
-        // 2) Otherwise, delegate to server handler for code/token_hash flows
-        // Keep the current query string
+        // Otherwise delegate to server handler for code/token_hash flows
         const qs = window.location.search || ''
         window.location.replace(`/auth/callback/server${qs}`)
       } catch {
@@ -75,13 +77,13 @@ export default function AuthCallbackPage() {
     }
 
     run()
-  }, [router])
+  }, [router, supabase])
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-md w-full rounded-xl border bg-white p-6 text-center space-y-2">
         <div className="text-lg font-semibold">{msg}</div>
-        <div className="text-sm opacity-70">You can close this page once it finishes.</div>
+        <div className="text-sm opacity-70">When you’re done, please close this page.</div>
       </div>
     </div>
   )
