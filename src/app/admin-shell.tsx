@@ -9,6 +9,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   // Hide sidebar/header on auth pages
   const isAuthRoute =
+    pathname === '/' ||
     pathname === '/login' ||
     pathname.startsWith('/login/') ||
     pathname === '/vendor/login' ||
