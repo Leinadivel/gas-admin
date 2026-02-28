@@ -15,7 +15,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     pathname.startsWith('/vendor/login/') ||
     pathname === '/vendor/register' ||
     pathname.startsWith('/vendor/register/') ||
-    pathname.startsWith('/vendor/')
+    pathname.startsWith('/vendor/') ||
+    pathname.startsWith('/driver/') ||
+    pathname.startsWith('/auth/callback')  
 
   if (isAuthRoute) {
     return <>{children}</>
