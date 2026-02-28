@@ -22,18 +22,15 @@ export default function VendorRegisterPage() {
     setLoading(true)
 
     try {
-      // Use production URL if available
-      const siteUrl =
-        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
 
       const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           emailRedirectTo: `${siteUrl}/auth/callback?next=/vendor/login`,
-
-          // This will be read by the DB trigger
           data: {
+            app_role: 'vendor',              // ✅ IMPORTANT marker
             business_name: companyName.trim(),
           },
         },
@@ -41,7 +38,6 @@ export default function VendorRegisterPage() {
 
       if (signUpError) throw signUpError
 
-      // Email confirmation is ON → do NOT sign in here
       setSuccess(
         'Account created successfully. Please check your email to verify your account, then log in.'
       )
@@ -53,7 +49,6 @@ export default function VendorRegisterPage() {
       setTimeout(() => {
         router.replace('/vendor/login')
       }, 1000)
-
     } catch (err: any) {
       setError(err?.message ?? 'Something went wrong')
     } finally {
@@ -65,9 +60,7 @@ export default function VendorRegisterPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-xl border p-6 shadow-sm bg-white">
         <h1 className="text-xl font-semibold">Vendor Registration</h1>
-        <p className="mt-1 text-sm opacity-70">
-          Create your vendor company account.
-        </p>
+        <p className="mt-1 text-sm opacity-70">Create your vendor company account.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
