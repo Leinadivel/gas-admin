@@ -23,9 +23,35 @@ import {
   Package,
   ClipboardCheck,
   Navigation,
+  Store,
+  Zap,
+  LifeBuoy,
 } from 'lucide-react'
 
 export default function HomePage() {
+  // Smooth scroll for in-page anchors
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const a = e.target as HTMLElement | null
+      const link = a?.closest?.('a[href^="#"]') as HTMLAnchorElement | null
+      if (!link) return
+      const href = link.getAttribute('href')
+      if (!href || href === '#') return
+
+      const el = document.querySelector(href)
+      if (!el) return
+
+      e.preventDefault()
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+      // keep URL hash in sync without jump
+      history.replaceState(null, '', href)
+    }
+
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [])
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* BACKDROP BLOBS */}
@@ -61,21 +87,33 @@ export default function HomePage() {
           </Link>
 
           <div className="hidden items-center gap-2 sm:flex">
-            <a href="#how" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <a
+              href="#how"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
               How it works
             </a>
-            <a href="#accessories" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <a
+              href="#accessories"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
               Accessories
             </a>
-            <a href="#reviews" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <a
+              href="#reviews"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
               Reviews
             </a>
+
+            {/* Keep ONLY this vendor login reference (as requested) */}
             <Link
               href="/vendor/login"
               className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
             >
               Vendor login
             </Link>
+
             <a
               href="#get-app"
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
@@ -132,6 +170,7 @@ export default function HomePage() {
               driver live as they come to you. No long queues, no last-minute panic, no guesswork.
             </motion.p>
 
+            {/* PRIMARY CTAs (no vendor login here) */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -145,12 +184,12 @@ export default function HomePage() {
                 Get the user app <ArrowRight className="h-4 w-4" />
               </a>
 
-              <Link
-                href="/vendor/login"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-orange-600"
+              <a
+                href="#how"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold hover:bg-gray-50"
               >
-                Vendor portal <ArrowRight className="h-4 w-4" />
-              </Link>
+                See how it works <Zap className="h-4 w-4" />
+              </a>
 
               <a
                 href="#accessories"
@@ -172,11 +211,7 @@ export default function HomePage() {
                 label="Happy customers"
                 value={<AnimatedNumber end={500} suffix="+" />}
               />
-              <MiniStat
-                icon={<Clock className="h-4 w-4" />}
-                label="Typical ETA"
-                value="10–25 mins"
-              />
+              <MiniStat icon={<Clock className="h-4 w-4" />} label="Typical ETA" value="10–25 mins" />
             </div>
 
             {/* BADGES */}
@@ -185,9 +220,24 @@ export default function HomePage() {
               <Badge text="Live tracking & updates" icon={<Navigation className="h-3.5 w-3.5" />} />
               <Badge text="Support by phone" icon={<PhoneCall className="h-3.5 w-3.5" />} />
             </div>
+
+            {/* Extra content (replacing vendor CTA spots) */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <BulletCard
+                icon={<ClipboardCheck className="h-5 w-5" />}
+                title="Clear status updates"
+                desc="From accepted → en route → arrived → completed, you always know what’s happening."
+              />
+              <BulletCard
+                icon={<LifeBuoy className="h-5 w-5" />}
+                title="Real support"
+                desc="If anything feels off, reach support quickly. Gas delivery is real life—so we built for it."
+                accent="orange"
+              />
+            </div>
           </div>
 
-          {/* RIGHT: FLOATING PHONE UI */}
+          {/* RIGHT: FLOATING PHONE UI (more phone-like) */}
           <div className="relative">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
@@ -209,14 +259,20 @@ export default function HomePage() {
                 {/* Phone mock */}
                 <div className="mt-5 flex items-center justify-center">
                   <motion.div
-                    className="relative w-[290px] rounded-[2.2rem] border border-gray-200 bg-gray-950 shadow-lg"
+                    className="relative w-[240px] sm:w-[255px] rounded-[2.6rem] border border-gray-200 bg-gray-950 shadow-lg"
                     animate={{ y: [0, -10, 0] }}
                     transition={{ duration: 4.8, repeat: Infinity, ease: 'easeInOut' }}
                   >
                     {/* Notch */}
                     <div className="absolute left-1/2 top-2 h-6 w-24 -translate-x-1/2 rounded-full bg-gray-900" />
+
+                    {/* Side buttons (subtle) */}
+                    <div className="absolute -left-[3px] top-20 h-10 w-[3px] rounded-full bg-gray-800" />
+                    <div className="absolute -left-[3px] top-36 h-14 w-[3px] rounded-full bg-gray-800" />
+                    <div className="absolute -right-[3px] top-28 h-14 w-[3px] rounded-full bg-gray-800" />
+
                     <div className="p-3">
-                      <div className="rounded-[1.85rem] bg-white">
+                      <div className="rounded-[2.05rem] bg-white">
                         {/* App header */}
                         <div className="flex items-center justify-between px-4 pt-4">
                           <div className="flex items-center gap-2">
@@ -240,12 +296,12 @@ export default function HomePage() {
                               <div className="h-full w-full bg-[radial-gradient(circle_at_20%_25%,rgba(37,99,235,0.22)_0,transparent_45%),radial-gradient(circle_at_80%_30%,rgba(249,115,22,0.18)_0,transparent_45%),radial-gradient(circle_at_50%_80%,rgba(37,99,235,0.14)_0,transparent_50%)]" />
                             </div>
 
-                            {/* Route line */}
                             <div className="relative p-4">
                               <div className="flex items-center justify-between">
                                 <div className="text-[11px] font-semibold text-gray-700">Driver route</div>
                                 <div className="text-[11px] text-gray-500">ETA 12 mins</div>
                               </div>
+
                               <div className="mt-4 flex items-center gap-3">
                                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-sm">
                                   <Truck className="h-5 w-5" />
@@ -262,6 +318,7 @@ export default function HomePage() {
                                   <MapPin className="h-5 w-5" />
                                 </span>
                               </div>
+
                               <div className="mt-4 grid grid-cols-3 gap-2">
                                 <Pill icon={<ShieldCheck className="h-4 w-4" />} text="Verified" />
                                 <Pill icon={<ClipboardCheck className="h-4 w-4" />} text="Order ready" />
@@ -293,23 +350,17 @@ export default function HomePage() {
                   </motion.div>
                 </div>
 
-                {/* Small info cards */}
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <InfoCard
+                {/* Replace old user/vendor cards with content cards (no vendor login) */}
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <InfoCardLite
                     icon={<Smartphone className="h-5 w-5 text-blue-700" />}
-                    title="User app"
-                    desc="Request refills, track delivery, and reorder anytime."
-                    ctaHref="#get-app"
-                    cta="Get the app"
-                    ctaStyle="primary"
+                    title="Refill from your phone"
+                    desc="Request a refill, get matched, and track the driver live—simple and fast."
                   />
-                  <InfoCard
-                    icon={<Truck className="h-5 w-5 text-orange-700" />}
-                    title="Vendor portal"
-                    desc="Manage drivers, vehicles, pricing, and orders in one place."
-                    ctaHref="/vendor/login"
-                    cta="Vendor login"
-                    ctaStyle="secondary"
+                  <InfoCardLite
+                    icon={<Store className="h-5 w-5 text-orange-700" />}
+                    title="Accessories included"
+                    desc="Regulators, hoses, burners, valves—add them to your delivery and save time."
                   />
                 </div>
               </div>
@@ -384,12 +435,12 @@ export default function HomePage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how" className="mx-auto max-w-6xl px-4 py-14">
+      <section id="how" className="mx-auto max-w-6xl px-4 py-14 scroll-mt-24">
         <div className="mb-8 max-w-2xl">
           <h2 className="text-3xl font-extrabold tracking-tight">How GasGo works</h2>
           <p className="mt-2 text-sm text-gray-600">
             We designed GasGo for everyday cooking: quick request, fair pricing, verified fulfillment,
-            and a smooth delivery experience. Here’s the simple flow:
+            and a smooth delivery experience.
           </p>
         </div>
 
@@ -422,8 +473,8 @@ export default function HomePage() {
             icon={<ClipboardCheck className="h-5 w-5" />}
           />
           <Callout
-            title="Vendors: grow faster with a proper portal"
-            body="Manage drivers, vehicles, orders, and dispatch flow from one place. Inviting drivers is simple, and your team can set passwords securely."
+            title="Accessories delivered with your refill"
+            body="Add regulators, hoses, burners, and safety valves to your order so you don’t have to do multiple runs. One delivery, everything you need."
             icon={<Package className="h-5 w-5" />}
             accent="orange"
           />
@@ -431,7 +482,7 @@ export default function HomePage() {
       </section>
 
       {/* ACCESSORIES */}
-      <section id="accessories" className="bg-gradient-to-b from-blue-50 to-white py-16">
+      <section id="accessories" className="bg-gradient-to-b from-blue-50 to-white py-16 scroll-mt-24">
         <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 lg:grid-cols-2">
           {/* Left */}
           <div className="space-y-5">
@@ -469,12 +520,12 @@ export default function HomePage() {
               >
                 Order with the app <ArrowRight className="h-4 w-4" />
               </a>
-              <Link
-                href="/vendor/login"
+              <a
+                href="#reviews"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold hover:bg-gray-50"
               >
-                Vendor portal <ArrowRight className="h-4 w-4" />
-              </Link>
+                See reviews <Star className="h-4 w-4" />
+              </a>
             </div>
           </div>
 
@@ -494,7 +545,6 @@ export default function HomePage() {
               </div>
 
               <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-                {/* Cylinder mock */}
                 <div className="flex items-center justify-center">
                   <motion.div
                     className="relative"
@@ -511,7 +561,6 @@ export default function HomePage() {
                   </motion.div>
                 </div>
 
-                {/* Items */}
                 <div className="space-y-3">
                   <AccessoryCard icon={<Wrench className="h-4 w-4" />} title="Regulator" desc="Stable pressure, reliable flame." />
                   <AccessoryCard icon={<ShieldCheck className="h-4 w-4" />} title="Safety valve" desc="Added safety for home use." />
@@ -534,17 +583,30 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                  <ShieldCheck className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="text-sm font-semibold">Safety-first sourcing</div>
+                  <div className="text-xs text-gray-600">
+                    We prioritize quality checks and reliable parts to keep your setup stable.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* TESTIMONIALS */}
-      <section id="reviews" className="mx-auto max-w-6xl px-4 py-16">
+      <section id="reviews" className="mx-auto max-w-6xl px-4 py-16 scroll-mt-24">
         <div className="mb-8 max-w-2xl">
           <h2 className="text-3xl font-extrabold tracking-tight">Customers are already loving GasGo</h2>
           <p className="mt-2 text-sm text-gray-600">
-            We’re proud of the feedback we’ve received. GasGo is built around real customer needs:
-            fast refills, clear updates, and safe service you can trust.
+            GasGo is built around real customer needs: fast refills, clear updates, and safe service you can trust.
           </p>
         </div>
 
@@ -566,7 +628,6 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Ratings strip */}
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <RatingCard title="Average rating" value="4.8/5" desc="From real customer feedback" />
           <RatingCard title="Refilled volume" value="15,000kg+" desc="Delivered safely to homes & businesses" />
@@ -575,7 +636,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section id="get-app" className="mx-auto max-w-6xl px-4 pb-16">
+      <section id="get-app" className="mx-auto max-w-6xl px-4 pb-16 scroll-mt-24">
         <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-blue-600 to-blue-700 p-8 text-white shadow-sm">
           <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
             <div className="space-y-3">
@@ -583,11 +644,10 @@ export default function HomePage() {
                 Ready for stress-free refills?
               </h3>
               <p className="text-sm text-white/85">
-                Download the app to request refills and track deliveries. Vendors can log in to manage
-                drivers, vehicles, and incoming orders—built for real operations, not guesswork.
+                Download the app to request refills and track deliveries. Add accessories when needed,
+                and get clear updates from dispatch to arrival.
               </p>
 
-              {/* Store badges (placeholders) */}
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <StoreBadge label="Download on the" store="App Store" />
                 <StoreBadge label="Get it on" store="Google Play" />
@@ -606,12 +666,12 @@ export default function HomePage() {
               >
                 Get the app <ArrowRight className="h-4 w-4" />
               </a>
-              <Link
-                href="/vendor/login"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white hover:bg-orange-600"
+              <a
+                href="#how"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold text-white hover:bg-white/15"
               >
-                Vendor login <ArrowRight className="h-4 w-4" />
-              </Link>
+                Learn more <ArrowRight className="h-4 w-4" />
+              </a>
             </div>
           </div>
         </div>
@@ -638,9 +698,8 @@ export default function HomePage() {
             <a href="#reviews" className="text-gray-600 hover:text-gray-900">
               Reviews
             </a>
-            <Link href="/vendor/login" className="text-gray-600 hover:text-gray-900">
-              Vendor login
-            </Link>
+
+            {/* Remove vendor login everywhere else (footer included) */}
             <Link href="/login" className="text-gray-600 hover:text-gray-900">
               Admin login
             </Link>
@@ -723,26 +782,15 @@ function Pill({ icon, text }: { icon: React.ReactNode; text: string }) {
   )
 }
 
-function InfoCard({
+function InfoCardLite({
   icon,
   title,
   desc,
-  ctaHref,
-  cta,
-  ctaStyle,
 }: {
   icon: React.ReactNode
   title: string
   desc: string
-  ctaHref: string
-  cta: string
-  ctaStyle: 'primary' | 'secondary'
 }) {
-  const btn =
-    ctaStyle === 'primary'
-      ? 'bg-blue-600 text-white hover:bg-blue-700'
-      : 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50'
-
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <div className="flex items-start gap-3">
@@ -754,13 +802,37 @@ function InfoCard({
           <div className="mt-1 text-xs text-gray-600">{desc}</div>
         </div>
       </div>
+    </div>
+  )
+}
 
-      <Link
-        href={ctaHref}
-        className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${btn}`}
-      >
-        {cta} <ArrowRight className="h-4 w-4" />
-      </Link>
+function BulletCard({
+  icon,
+  title,
+  desc,
+  accent,
+}: {
+  icon: React.ReactNode
+  title: string
+  desc: string
+  accent?: 'orange'
+}) {
+  const wrap =
+    accent === 'orange'
+      ? 'bg-orange-50 text-orange-700'
+      : 'bg-blue-50 text-blue-700'
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${wrap}`}>
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">{title}</div>
+          <div className="mt-1 text-xs text-gray-600">{desc}</div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -961,11 +1033,8 @@ function StoreBadge({ label, store }: { label: string; store: string }) {
 function MockCylinder() {
   return (
     <div className="relative w-44">
-      {/* top handle */}
       <div className="mx-auto h-7 w-24 rounded-t-3xl border border-gray-300 bg-gray-50" />
-      {/* valve */}
       <div className="mx-auto -mt-2 h-4 w-10 rounded-lg border border-gray-300 bg-white" />
-      {/* body */}
       <div className="relative -mt-2 rounded-3xl border border-gray-200 bg-gradient-to-b from-blue-600 to-blue-700 p-4 shadow-md">
         <div className="absolute inset-x-0 top-3 mx-auto h-2 w-24 rounded-full bg-white/20" />
         <div className="mt-6 text-center text-white">
@@ -974,7 +1043,6 @@ function MockCylinder() {
         </div>
         <div className="mt-6 h-2 w-full rounded-full bg-white/15" />
       </div>
-      {/* base */}
       <div className="mx-auto mt-2 h-4 w-32 rounded-full bg-gray-200" />
     </div>
   )
