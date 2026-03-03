@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
@@ -42,12 +43,13 @@ function VendorLoginInner() {
 
       if (profileErr) throw profileErr
 
-      // Vendor only
+      // Admin goes to admin dashboard
       if (profile?.is_admin) {
         router.replace('/dashboard')
         return
       }
 
+      // Vendor only
       if (profile?.role !== 'vendor') {
         await supabase.auth.signOut()
         throw new Error('Access denied. This login is for vendors only.')
@@ -62,8 +64,28 @@ function VendorLoginInner() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
       <div className="w-full max-w-sm rounded-xl border p-6 shadow-sm bg-white">
+        {/* Top: logo + back link */}
+        <div className="mb-5 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
+              <span className="text-sm font-extrabold">G</span>
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-extrabold tracking-tight">GasGo</div>
+              <div className="text-[11px] text-gray-500">Vendor Portal</div>
+            </div>
+          </Link>
+
+          <Link
+            href="/"
+            className="text-xs font-semibold text-gray-600 hover:text-gray-900"
+          >
+            ← Back to home
+          </Link>
+        </div>
+
         <h1 className="text-xl font-semibold">Vendor Login</h1>
         <p className="mt-1 text-sm opacity-70">Sign in to your vendor portal.</p>
 
@@ -123,8 +145,10 @@ export default function VendorLoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="rounded-xl border bg-white p-4 text-sm opacity-70">Loading…</div>
+        <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
+          <div className="rounded-xl border bg-white p-4 text-sm opacity-70">
+            Loading…
+          </div>
         </div>
       }
     >
