@@ -27,7 +27,7 @@ export function SidebarNav() {
   const [settingsOpen, setSettingsOpen] = useState(settingsActive)
 
   return (
-    <nav className="p-3 space-y-1 text-sm">
+    <nav className="p-2 sm:p-3 space-y-1 text-sm">
       {mainItems.map((item) => {
         const active =
           pathname === item.href || pathname.startsWith(item.href + '/')
