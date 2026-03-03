@@ -652,10 +652,6 @@ export default function HomePage() {
                 <StoreBadge label="Download on the" store="App Store" />
                 <StoreBadge label="Get it on" store="Google Play" />
               </div>
-
-              <div className="mt-4 text-xs text-white/80">
-                * Store links can be connected later. For now, keep “Get the app” as your launch CTA.
-              </div>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -698,11 +694,6 @@ export default function HomePage() {
             <a href="#reviews" className="text-gray-600 hover:text-gray-900">
               Reviews
             </a>
-
-            {/* Remove vendor login everywhere else (footer included) */}
-            <Link href="/login" className="text-gray-600 hover:text-gray-900">
-              Admin login
-            </Link>
           </div>
         </div>
       </footer>
