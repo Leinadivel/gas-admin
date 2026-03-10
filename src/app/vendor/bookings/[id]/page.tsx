@@ -35,7 +35,7 @@ export default function VendorBookingDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  cconst [vendor, setVendor] = useState<VendorRow | null>(null)
+  const [vendor, setVendor] = useState<VendorRow | null>(null)
   const [order, setOrder] = useState<OrderDetails | null>(null)
   const [vehiclePlate, setVehiclePlate] = useState<string | null>(null)
 
@@ -46,6 +46,7 @@ export default function VendorBookingDetailsPage() {
       setLoading(true)
       setError(null)
       setOrder(null)
+      setVehiclePlate(null)
 
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) {
@@ -65,7 +66,6 @@ export default function VendorBookingDetailsPage() {
         return
       }
 
-      // vendor
       const { data: vendorRow, error: vendorErr } = await supabase
         .from('vendors')
         .select('id,business_name')
@@ -92,7 +92,6 @@ export default function VendorBookingDetailsPage() {
       }
       setVendor(v)
 
-      // order (must belong to vendor)
       const { data: orderRow, error: orderErr } = await supabase
         .from('orders')
         .select(
@@ -135,7 +134,6 @@ export default function VendorBookingDetailsPage() {
         return
       }
 
-      // Build a strongly-typed object instead of casting
       const o: OrderDetails = {
         id: String((orderRow as any).id),
         status: String((orderRow as any).status),
@@ -159,7 +157,6 @@ export default function VendorBookingDetailsPage() {
 
       setOrder(o)
 
-      // fetch vehicle plate number
       if (o.vehicle_id) {
         const { data: vehicleRow } = await supabase
           .from('vehicles')
