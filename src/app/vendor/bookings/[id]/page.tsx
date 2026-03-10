@@ -159,7 +159,7 @@ export default function VendorBookingDetailsPage() {
 
       if (o.vehicle_id) {
         const { data: vehicleRow } = await supabase
-          .from('vehicles')
+          .from('vendor_vehicles')
           .select('plate_number')
           .eq('id', o.vehicle_id)
           .maybeSingle()
