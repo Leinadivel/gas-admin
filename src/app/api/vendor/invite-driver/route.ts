@@ -6,20 +6,25 @@ import { createClient } from '@supabase/supabase-js'
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
+      full_name?: string
       email?: string
       role?: string
       vehicle_id?: string | null
     }
 
+    const fullName = (body.full_name ?? '').trim()
     const email = (body.email ?? '').trim().toLowerCase()
     const role = (body.role ?? 'driver').trim()
     const vehicleId = body.vehicle_id ?? null
+
+    if (!fullName) {
+      return NextResponse.json({ error: 'Driver name is required.' }, { status: 400 })
+    }
 
     if (!email) {
       return NextResponse.json({ error: 'Email is required.' }, { status: 400 })
     }
 
-    // 1) Authenticate the vendor making this request (cookie session)
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,9 +34,7 @@ export async function POST(req: Request) {
           getAll() {
             return cookieStore.getAll()
           },
-          setAll() {
-            // not needed in this handler
-          },
+          setAll() {},
         },
       }
     )
@@ -47,7 +50,6 @@ export async function POST(req: Request) {
 
     const authId = user.id
 
-    // 2) Find vendor row (NO .single / .maybeSingle)
     const { data: vendorRows, error: vendorErr } = await supabase
       .from('vendors')
       .select('id, profile_id, user_id, created_at')
@@ -71,7 +73,6 @@ export async function POST(req: Request) {
       )
     }
 
-    // 3) Admin client (service role) to invite/create driver auth user
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceKey) {
       return NextResponse.json(
@@ -84,8 +85,6 @@ export async function POST(req: Request) {
       auth: { persistSession: false },
     })
 
-    // 4) Redirect URL for invite -> callback -> driver invite page
-    // Use your production app URL (gas-admin.vercel.app)
     const siteUrl =
       process.env.NEXT_PUBLIC_APP_URL ??
       process.env.NEXT_PUBLIC_SITE_URL ??
@@ -120,11 +119,10 @@ export async function POST(req: Request) {
       )
     }
 
-    // ✅ 4b) Ensure profiles role is correct for driver/staff
-    // (Your auth trigger now defaults new users to role='user', so we override to staff role here.)
     const { error: profileErr } = await admin.from('profiles').upsert({
       id: driverUserId,
-      role, // 'driver' | 'dispatcher' | 'manager'
+      full_name: fullName,
+      role,
       is_admin: false,
     })
 
@@ -132,7 +130,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: profileErr.message }, { status: 400 })
     }
 
-    // 5) Create vendor_staff record
     const { error: linkErr } = await admin.from('vendor_staff').insert({
       vendor_id: vendorRow.id,
       user_id: driverUserId,

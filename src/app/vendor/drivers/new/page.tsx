@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 export default function VendorNewDriverPage() {
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('driver')
   const [loading, setLoading] = useState(false)
@@ -20,13 +21,18 @@ export default function VendorNewDriverPage() {
       const res = await fetch('/api/vendor/invite-driver', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), role }),
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          email: email.trim(),
+          role,
+        }),
       })
 
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json?.error ?? 'Failed to invite driver.')
 
       setSuccess('Invite sent. Driver should check email (spam too) to set password.')
+      setFullName('')
       setEmail('')
       setRole('driver')
     } catch (err: any) {
@@ -40,7 +46,7 @@ export default function VendorNewDriverPage() {
     <div className="max-w-lg space-y-4">
       <div>
         <h1 className="text-2xl font-semibold">Add driver</h1>
-        <p className="text-sm opacity-70">Invite a driver by email.</p>
+        <p className="text-sm opacity-70">Invite a driver by name and email.</p>
       </div>
 
       {error ? (
@@ -57,6 +63,18 @@ export default function VendorNewDriverPage() {
 
       <form onSubmit={onInvite} className="rounded-xl border bg-white p-4 space-y-4">
         <div className="space-y-2">
+          <label className="text-sm font-medium">Driver name</label>
+          <input
+            className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="John Okafor"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
           <label className="text-sm font-medium">Driver email</label>
           <input
             className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2"
@@ -71,7 +89,7 @@ export default function VendorNewDriverPage() {
         <div className="space-y-2">
           <label className="text-sm font-medium">Role</label>
           <select
-            className="w-full rounded-md border px-3 py-2 bg-white"
+            className="w-full rounded-md border bg-white px-3 py-2"
             value={role}
             onChange={(e) => setRole(e.target.value)}
           >
@@ -85,7 +103,7 @@ export default function VendorNewDriverPage() {
           <button
             type="submit"
             disabled={loading}
-            className="rounded-md bg-black text-white px-4 py-2 text-sm disabled:opacity-60"
+            className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60"
           >
             {loading ? 'Inviting…' : 'Send invite'}
           </button>
