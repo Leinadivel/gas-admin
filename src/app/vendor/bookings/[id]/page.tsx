@@ -35,8 +35,9 @@ export default function VendorBookingDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [vendor, setVendor] = useState<VendorRow | null>(null)
+  cconst [vendor, setVendor] = useState<VendorRow | null>(null)
   const [order, setOrder] = useState<OrderDetails | null>(null)
+  const [vehiclePlate, setVehiclePlate] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -157,6 +158,20 @@ export default function VendorBookingDetailsPage() {
       }
 
       setOrder(o)
+
+      // fetch vehicle plate number
+      if (o.vehicle_id) {
+        const { data: vehicleRow } = await supabase
+          .from('vehicles')
+          .select('plate_number')
+          .eq('id', o.vehicle_id)
+          .maybeSingle()
+
+        if (vehicleRow?.plate_number) {
+          setVehiclePlate(vehicleRow.plate_number)
+        }
+      }
+
       setLoading(false)
     }
 
@@ -218,7 +233,7 @@ export default function VendorBookingDetailsPage() {
           <Card title="Order">
             <Row label="Cylinder size" value={order.cylinder_size ?? '—'} />
             <Row label="Quantity" value={order.quantity ?? '—'} />
-            <Row label="Vehicle" value={order.vehicle_id ?? '—'} mono />
+            <Row label="Vehicle" value={vehiclePlate ?? '—'} mono />
           </Card>
 
           <Card title="Amounts">
