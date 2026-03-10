@@ -1,6 +1,7 @@
 // src/app/page.tsx
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
@@ -76,11 +77,16 @@ export default function HomePage() {
       {/* NAVBAR */}
       <header className="sticky top-0 z-30 border-b bg-white/75 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
-              <Flame className="h-5 w-5" />
-            </span>
-            <div className="leading-tight">
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/24hrs-logo.png"
+              alt="24hrsGas logo"
+              width={140}
+              height={56}
+              className="h-11 w-auto object-contain"
+              priority
+            />
+            <div className="hidden leading-tight sm:block">
               <div className="text-base font-extrabold tracking-tight">24hrsGas</div>
               <div className="text-xs text-gray-500">Mobile Gas Refill & Accessories</div>
             </div>
@@ -276,11 +282,14 @@ export default function HomePage() {
                         {/* App header */}
                         <div className="flex items-center justify-between px-4 pt-4">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-600 text-white">
-                              <Flame className="h-5 w-5" />
-                            </span>
+                            <Image
+                              src="/24hrs-logo.png"
+                              alt="24hrsGas logo"
+                              width={90}
+                              height={36}
+                              className="h-8 w-auto object-contain"
+                            />
                             <div className="leading-tight">
-                              <div className="text-sm font-semibold">24hrsGas</div>
                               <div className="text-[11px] text-gray-500">Tracking</div>
                             </div>
                           </div>
@@ -676,11 +685,14 @@ export default function HomePage() {
       {/* FOOTER */}
       <footer className="border-t bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white">
-              <Flame className="h-4 w-4" />
-            </span>
-            <div className="text-sm font-semibold">24hrsGas</div>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/24hrs-logo.png"
+              alt="24hrsGas logo"
+              width={110}
+              height={44}
+              className="h-9 w-auto object-contain"
+            />
             <div className="text-xs text-gray-500">© {new Date().getFullYear()}</div>
           </div>
 
