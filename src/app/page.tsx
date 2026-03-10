@@ -81,7 +81,7 @@ export default function HomePage() {
               <Flame className="h-5 w-5" />
             </span>
             <div className="leading-tight">
-              <div className="text-base font-extrabold tracking-tight">GasGo</div>
+              <div className="text-base font-extrabold tracking-tight">24hrsGas</div>
               <div className="text-xs text-gray-500">Mobile Gas Refill & Accessories</div>
             </div>
           </Link>
@@ -165,7 +165,7 @@ export default function HomePage() {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg"
             >
-              GasGo helps you refill cooking gas quickly and safely—right where you are.
+              24hrsGas helps you refill cooking gas quickly and safely—right where you are.
               Request a refill from your phone, get matched to a nearby vendor, and track the
               driver live as they come to you. No long queues, no last-minute panic, no guesswork.
             </motion.p>
@@ -280,7 +280,7 @@ export default function HomePage() {
                               <Flame className="h-5 w-5" />
                             </span>
                             <div className="leading-tight">
-                              <div className="text-sm font-semibold">GasGo</div>
+                              <div className="text-sm font-semibold">24hrsGas</div>
                               <div className="text-[11px] text-gray-500">Tracking</div>
                             </div>
                           </div>
@@ -437,9 +437,9 @@ export default function HomePage() {
       {/* HOW IT WORKS */}
       <section id="how" className="mx-auto max-w-6xl px-4 py-14 scroll-mt-24">
         <div className="mb-8 max-w-2xl">
-          <h2 className="text-3xl font-extrabold tracking-tight">How GasGo works</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight">How 24hrsGas works</h2>
           <p className="mt-2 text-sm text-gray-600">
-            We designed GasGo for everyday cooking: quick request, fair pricing, verified fulfillment,
+            We designed 24hrsGas for everyday cooking: quick request, fair pricing, verified fulfillment,
             and a smooth delivery experience.
           </p>
         </div>
@@ -496,7 +496,7 @@ export default function HomePage() {
             </h2>
 
             <p className="text-gray-700">
-              Beyond refills, GasGo supplies quality gas accessories that help your home or business
+              Beyond refills, 24hrsGas supplies quality gas accessories that help your home or business
               stay safe and efficient. If you’ve ever dealt with weak regulators, worn hoses, or
               unreliable valves, you’ll appreciate having trusted parts delivered with your refill.
             </p>
@@ -604,9 +604,9 @@ export default function HomePage() {
       {/* TESTIMONIALS */}
       <section id="reviews" className="mx-auto max-w-6xl px-4 py-16 scroll-mt-24">
         <div className="mb-8 max-w-2xl">
-          <h2 className="text-3xl font-extrabold tracking-tight">Customers are already loving GasGo</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight">Customers are already loving 24hrsGas</h2>
           <p className="mt-2 text-sm text-gray-600">
-            GasGo is built around real customer needs: fast refills, clear updates, and safe service you can trust.
+            24hrsGas is built around real customer needs: fast refills, clear updates, and safe service you can trust.
           </p>
         </div>
 
@@ -614,7 +614,7 @@ export default function HomePage() {
           <Testimonial
             name="Aisha T."
             role="Home cook"
-            text="GasGo saved me when I was about to run out mid-cooking. The driver arrived quickly, and I could track the entire route. Smooth experience."
+            text="24hrsGas saved me when I was about to run out mid-cooking. The driver arrived quickly, and I could track the entire route. Smooth experience."
           />
           <Testimonial
             name="Daniel M."
@@ -680,7 +680,7 @@ export default function HomePage() {
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white">
               <Flame className="h-4 w-4" />
             </span>
-            <div className="text-sm font-semibold">GasGo</div>
+            <div className="text-sm font-semibold">24hrsGas</div>
             <div className="text-xs text-gray-500">© {new Date().getFullYear()}</div>
           </div>
 
@@ -1029,7 +1029,7 @@ function MockCylinder() {
       <div className="relative -mt-2 rounded-3xl border border-gray-200 bg-gradient-to-b from-blue-600 to-blue-700 p-4 shadow-md">
         <div className="absolute inset-x-0 top-3 mx-auto h-2 w-24 rounded-full bg-white/20" />
         <div className="mt-6 text-center text-white">
-          <div className="text-xs font-semibold opacity-90">GasGo</div>
+          <div className="text-xs font-semibold opacity-90">24hrsGas</div>
           <div className="text-[11px] opacity-80">Cylinder</div>
         </div>
         <div className="mt-6 h-2 w-full rounded-full bg-white/15" />
