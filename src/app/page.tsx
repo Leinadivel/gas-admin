@@ -706,6 +706,38 @@ export default function HomePage() {
             <a href="#reviews" className="text-gray-600 hover:text-gray-900">
               Reviews
             </a>
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              Terms of Service
+            </a>
+            <a
+              href="/delivery-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              Delivery Policy
+            </a>
+            <a
+              href="/support"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-900"
+            >
+              Support
+            </a>
           </div>
         </div>
       </footer>
