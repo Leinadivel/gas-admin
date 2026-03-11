@@ -8,6 +8,7 @@ type StaffRow = {
   id: string
   vendor_id: string
   user_id: string | null
+  full_name: string | null
   role: string | null
   vehicle_id: string | null
   is_active: boolean
@@ -22,11 +23,6 @@ type VendorRow = {
   created_at?: string | null
 }
 
-type ProfileRow = {
-  id: string
-  full_name: string | null
-}
-
 type VendorVehicleRow = {
   id: string
   plate_number: string | null
@@ -39,7 +35,6 @@ export default function VendorDriversPage() {
 
   const [vendor, setVendor] = useState<VendorRow | null>(null)
   const [staff, setStaff] = useState<StaffRow[]>([])
-  const [profileMap, setProfileMap] = useState<Record<string, string>>({})
   const [vehicleMap, setVehicleMap] = useState<Record<string, string>>({})
 
   const filtered = useMemo(() => {
@@ -47,12 +42,11 @@ export default function VendorDriversPage() {
     if (!query) return staff
 
     return staff.filter((s) => {
-      const driverName = s.user_id ? profileMap[s.user_id] ?? '' : ''
       const vehiclePlate = s.vehicle_id ? vehicleMap[s.vehicle_id] ?? '' : ''
 
       const hay = [
         s.id,
-        driverName,
+        s.full_name ?? '',
         s.role ?? '',
         vehiclePlate,
       ]
@@ -61,7 +55,7 @@ export default function VendorDriversPage() {
 
       return hay.includes(query)
     })
-  }, [staff, q, profileMap, vehicleMap])
+  }, [staff, q, vehicleMap])
 
   useEffect(() => {
     let mounted = true
@@ -119,7 +113,7 @@ export default function VendorDriversPage() {
 
       const { data: staffRows, error: staffErr } = await supabase
         .from('vendor_staff')
-        .select('id,vendor_id,user_id,role,vehicle_id,is_active,created_at')
+        .select('id,vendor_id,user_id,full_name,role,vehicle_id,is_active,created_at')
         .eq('vendor_id', vendorRow.id)
         .order('created_at', { ascending: false })
         .limit(200)
@@ -129,7 +123,6 @@ export default function VendorDriversPage() {
       if (staffErr) {
         setError(staffErr.message)
         setStaff([])
-        setProfileMap({})
         setVehicleMap({})
         setLoading(false)
         return
@@ -138,30 +131,9 @@ export default function VendorDriversPage() {
       const staffList = (staffRows ?? []) as StaffRow[]
       setStaff(staffList)
 
-      const userIds = Array.from(
-        new Set(staffList.map((s) => s.user_id).filter(Boolean) as string[])
-      )
-
       const vehicleIds = Array.from(
         new Set(staffList.map((s) => s.vehicle_id).filter(Boolean) as string[])
       )
-
-      if (userIds.length > 0) {
-        const { data: profileRows } = await supabase
-          .from('profiles')
-          .select('id,full_name')
-          .in('id', userIds)
-
-        if (mounted) {
-          const nextProfileMap: Record<string, string> = {}
-          ;((profileRows ?? []) as ProfileRow[]).forEach((p) => {
-            nextProfileMap[p.id] = p.full_name ?? '—'
-          })
-          setProfileMap(nextProfileMap)
-        }
-      } else if (mounted) {
-        setProfileMap({})
-      }
 
       if (vehicleIds.length > 0) {
         const { data: vehicleRows } = await supabase
@@ -262,9 +234,7 @@ export default function VendorDriversPage() {
                   </td>
                   <td className="px-4 py-3 font-mono">{s.id}</td>
                   <td className="px-4 py-3">{s.role ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    {s.user_id ? profileMap[s.user_id] ?? '—' : '—'}
-                  </td>
+                  <td className="px-4 py-3">{s.full_name ?? '—'}</td>
                   <td className="px-4 py-3">
                     {s.vehicle_id ? vehicleMap[s.vehicle_id] ?? '—' : '—'}
                   </td>
