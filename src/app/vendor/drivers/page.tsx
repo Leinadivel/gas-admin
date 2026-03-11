@@ -22,6 +22,16 @@ type VendorRow = {
   created_at?: string | null
 }
 
+type ProfileRow = {
+  id: string
+  full_name: string | null
+}
+
+type VendorVehicleRow = {
+  id: string
+  plate_number: string | null
+}
+
 export default function VendorDriversPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -29,17 +39,29 @@ export default function VendorDriversPage() {
 
   const [vendor, setVendor] = useState<VendorRow | null>(null)
   const [staff, setStaff] = useState<StaffRow[]>([])
+  const [profileMap, setProfileMap] = useState<Record<string, string>>({})
+  const [vehicleMap, setVehicleMap] = useState<Record<string, string>>({})
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase()
     if (!query) return staff
+
     return staff.filter((s) => {
-      const hay = [s.id, s.user_id ?? '', s.role ?? '', s.vehicle_id ?? '']
+      const driverName = s.user_id ? profileMap[s.user_id] ?? '' : ''
+      const vehiclePlate = s.vehicle_id ? vehicleMap[s.vehicle_id] ?? '' : ''
+
+      const hay = [
+        s.id,
+        driverName,
+        s.role ?? '',
+        vehiclePlate,
+      ]
         .join(' ')
         .toLowerCase()
+
       return hay.includes(query)
     })
-  }, [staff, q])
+  }, [staff, q, profileMap, vehicleMap])
 
   useEffect(() => {
     let mounted = true
@@ -48,7 +70,6 @@ export default function VendorDriversPage() {
       setLoading(true)
       setError(null)
 
-      // Auth
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) {
         if (mounted) {
@@ -67,7 +88,6 @@ export default function VendorDriversPage() {
         return
       }
 
-      // ✅ SAFE vendor lookup (NO maybeSingle)
       const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
         .select('id,business_name,profile_id,user_id,created_at')
@@ -97,7 +117,6 @@ export default function VendorDriversPage() {
 
       setVendor(vendorRow)
 
-      // Staff list
       const { data: staffRows, error: staffErr } = await supabase
         .from('vendor_staff')
         .select('id,vendor_id,user_id,role,vehicle_id,is_active,created_at')
@@ -110,8 +129,55 @@ export default function VendorDriversPage() {
       if (staffErr) {
         setError(staffErr.message)
         setStaff([])
-      } else {
-        setStaff((staffRows ?? []) as StaffRow[])
+        setProfileMap({})
+        setVehicleMap({})
+        setLoading(false)
+        return
+      }
+
+      const staffList = (staffRows ?? []) as StaffRow[]
+      setStaff(staffList)
+
+      const userIds = Array.from(
+        new Set(staffList.map((s) => s.user_id).filter(Boolean) as string[])
+      )
+
+      const vehicleIds = Array.from(
+        new Set(staffList.map((s) => s.vehicle_id).filter(Boolean) as string[])
+      )
+
+      if (userIds.length > 0) {
+        const { data: profileRows } = await supabase
+          .from('profiles')
+          .select('id,full_name')
+          .in('id', userIds)
+
+        if (mounted) {
+          const nextProfileMap: Record<string, string> = {}
+          ;((profileRows ?? []) as ProfileRow[]).forEach((p) => {
+            nextProfileMap[p.id] = p.full_name ?? '—'
+          })
+          setProfileMap(nextProfileMap)
+        }
+      } else if (mounted) {
+        setProfileMap({})
+      }
+
+      if (vehicleIds.length > 0) {
+        const { data: vehicleRows } = await supabase
+          .from('vendor_vehicles')
+          .select('id,plate_number')
+          .in('id', vehicleIds)
+
+        if (mounted) {
+          const nextVehicleMap: Record<string, string> = {}
+          ;((vehicleRows ?? []) as VendorVehicleRow[]).forEach((v) => {
+            nextVehicleMap[v.id] = v.plate_number ?? '—'
+          })
+          setVehicleMap(nextVehicleMap)
+        }
+      } else if (mounted) {
+        setVehicleMap({})
       }
 
       setLoading(false)
@@ -140,16 +206,16 @@ export default function VendorDriversPage() {
           </p>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex w-full gap-2 sm:w-auto">
           <input
-            className="w-full sm:w-80 rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-            placeholder="Search: role, user_id, vehicle_id…"
+            className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2 sm:w-80"
+            placeholder="Search: driver name, role, plate number…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <Link
             href="/vendor/drivers/new"
-            className="rounded-md bg-black text-white px-4 py-2 text-sm whitespace-nowrap"
+            className="whitespace-nowrap rounded-md bg-black px-4 py-2 text-sm text-white"
           >
             Add driver
           </Link>
@@ -169,7 +235,7 @@ export default function VendorDriversPage() {
               <th className="px-4 py-3">Created</th>
               <th className="px-4 py-3">Staff ID</th>
               <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">User ID</th>
+              <th className="px-4 py-3">Driver Name</th>
               <th className="px-4 py-3">Vehicle</th>
               <th className="px-4 py-3">Active</th>
             </tr>
@@ -191,13 +257,17 @@ export default function VendorDriversPage() {
             ) : (
               filtered.map((s) => (
                 <tr key={s.id} className="border-b last:border-b-0">
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-4 py-3">
                     {s.created_at ? new Date(s.created_at).toLocaleString() : '—'}
                   </td>
                   <td className="px-4 py-3 font-mono">{s.id}</td>
                   <td className="px-4 py-3">{s.role ?? '—'}</td>
-                  <td className="px-4 py-3 font-mono">{s.user_id ?? '—'}</td>
-                  <td className="px-4 py-3 font-mono">{s.vehicle_id ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    {s.user_id ? profileMap[s.user_id] ?? '—' : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {s.vehicle_id ? vehicleMap[s.vehicle_id] ?? '—' : '—'}
+                  </td>
                   <td className="px-4 py-3">{s.is_active ? 'Yes' : 'No'}</td>
                 </tr>
               ))
