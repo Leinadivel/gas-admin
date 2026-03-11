@@ -133,6 +133,7 @@ export async function POST(req: Request) {
     const { error: linkErr } = await admin.from('vendor_staff').insert({
       vendor_id: vendorRow.id,
       user_id: driverUserId,
+      full_name: fullName,
       role,
       vehicle_id: vehicleId,
       is_active: true,
