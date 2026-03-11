@@ -25,6 +25,7 @@ type OrderDetails = {
   paystack_reference: string | null
   paid_at: string | null
   vehicle_id: string | null
+  driver_staff_id: string | null
   distance_km: number | null
 }
 
@@ -38,6 +39,7 @@ export default function VendorBookingDetailsPage() {
   const [vendor, setVendor] = useState<VendorRow | null>(null)
   const [order, setOrder] = useState<OrderDetails | null>(null)
   const [vehiclePlate, setVehiclePlate] = useState<string | null>(null)
+  const [driverName, setDriverName] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -47,6 +49,7 @@ export default function VendorBookingDetailsPage() {
       setError(null)
       setOrder(null)
       setVehiclePlate(null)
+      setDriverName(null)
 
       const { data: userData, error: userErr } = await supabase.auth.getUser()
       if (userErr) {
@@ -113,6 +116,7 @@ export default function VendorBookingDetailsPage() {
             'paystack_reference',
             'paid_at',
             'vehicle_id',
+            'driver_staff_id',
             'distance_km',
           ].join(',')
         )
@@ -152,6 +156,7 @@ export default function VendorBookingDetailsPage() {
         paystack_reference: (orderRow as any).paystack_reference ?? null,
         paid_at: (orderRow as any).paid_at ?? null,
         vehicle_id: (orderRow as any).vehicle_id ?? null,
+        driver_staff_id: (orderRow as any).driver_staff_id ?? null,
         distance_km: (orderRow as any).distance_km ?? null,
       }
 
@@ -166,6 +171,28 @@ export default function VendorBookingDetailsPage() {
 
         if (vehicleRow?.plate_number) {
           setVehiclePlate(vehicleRow.plate_number)
+        }
+      }
+
+      if (o.driver_staff_id) {
+        const { data: staffRow } = await supabase
+          .from('vendor_staff')
+          .select('user_id')
+          .eq('id', o.driver_staff_id)
+          .maybeSingle()
+
+        const driverUserId = staffRow?.user_id ?? null
+
+        if (driverUserId) {
+          const { data: profileRow } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', driverUserId)
+            .maybeSingle()
+
+          if (profileRow?.full_name) {
+            setDriverName(profileRow.full_name)
+          }
         }
       }
 
@@ -231,6 +258,7 @@ export default function VendorBookingDetailsPage() {
             <Row label="Cylinder size" value={order.cylinder_size ?? '—'} />
             <Row label="Quantity" value={order.quantity ?? '—'} />
             <Row label="Vehicle" value={vehiclePlate ?? '—'} mono />
+            <Row label="Driver" value={driverName ?? '—'} />
           </Card>
 
           <Card title="Amounts">
