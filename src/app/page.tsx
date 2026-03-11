@@ -693,7 +693,7 @@ export default function HomePage() {
               height={44}
               className="h-9 w-auto object-contain"
             />
-            <div className="text-xs text-gray-500">© {new Date().getFullYear()}</div>
+            <div className="text-xs text-gray-500">© {new Date().getFullYear()} All rights reserved.</div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-sm">
