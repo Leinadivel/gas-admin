@@ -175,23 +175,15 @@ export default function VendorBookingDetailsPage() {
       }
 
       if (o.driver_staff_id) {
-        const { data: staffRow } = await supabase
-          .from('vendor_staff')
-          .select('user_id')
-          .eq('id', o.driver_staff_id)
-          .maybeSingle()
+        const { data: driverRows, error: driverErr } = await supabase.rpc(
+          'get_vendor_order_driver_details',
+          { p_order_id: o.id }
+        )
 
-        const driverUserId = staffRow?.user_id ?? null
-
-        if (driverUserId) {
-          const { data: profileRow } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', driverUserId)
-            .maybeSingle()
-
-          if (profileRow?.full_name) {
-            setDriverName(profileRow.full_name)
+        if (!driverErr) {
+          const row = Array.isArray(driverRows) ? driverRows[0] : null
+          if (row?.driver_full_name) {
+            setDriverName(row.driver_full_name)
           }
         }
       }
