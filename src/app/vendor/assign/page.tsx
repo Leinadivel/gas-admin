@@ -162,7 +162,7 @@ export default function VendorAssignPage() {
       <div>
         <h1 className="text-2xl font-semibold">Assign driver</h1>
         <p className="text-sm opacity-70">
-          Select a driver and choose a vehicle (or set to Unassigned).
+          Select a driver and choose a vehicle to assign (or set to Unassigned).
         </p>
       </div>
 
@@ -202,7 +202,7 @@ export default function VendorAssignPage() {
             ))}
           </select>
           <div className="text-xs opacity-60">
-            Tip: we’ll later replace the user_id with driver name/phone when you add that.
+            Tip: Select driver name to assign.
           </div>
         </div>
 
@@ -243,9 +243,7 @@ export default function VendorAssignPage() {
         </button>
       </div>
 
-      <div className="text-xs opacity-60">
-        This updates <code>vendor_staff.vehicle_id</code>.
-      </div>
+
     </div>
   )
 }

@@ -118,7 +118,7 @@ export default function VendorNewDriverPage() {
       </form>
 
       <div className="text-xs opacity-60">
-        This creates an Auth user (invite) and inserts into <code>vendor_staff</code>.
+        This creates a new driver for your company.
       </div>
     </div>
   )

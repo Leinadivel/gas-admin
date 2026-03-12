@@ -369,9 +369,6 @@ export default function VendorDocumentsPage() {
             className="w-full rounded-md border px-3 py-2 bg-white"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-          <div className="text-xs opacity-60">
-            Stored in bucket <code>{BUCKET}</code> under <code>{'{auth.uid()}/...'}</code>.
-          </div>
         </div>
 
         <button

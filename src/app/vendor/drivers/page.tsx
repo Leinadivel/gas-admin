@@ -181,7 +181,7 @@ export default function VendorDriversPage() {
         <div className="flex w-full gap-2 sm:w-auto">
           <input
             className="w-full rounded-md border bg-white px-3 py-2 outline-none focus:ring-2 sm:w-80"
-            placeholder="Search: driver name, role, plate number…"
+            placeholder="Search: driver name, plate number…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -247,7 +247,7 @@ export default function VendorDriversPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        Next: we’ll build <code>/vendor/drivers/new</code> to invite/create drivers and assign vehicles.
+        You can add and manage drivers from this page
       </div>
     </div>
   )

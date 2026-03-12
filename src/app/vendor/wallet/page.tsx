@@ -250,7 +250,7 @@ export default function VendorWalletPage() {
         <StatCard
           label="Wallet balance"
           value={loading ? '…' : `₦${wallet.toLocaleString()}`}
-          hint="Withdraw uses wallet_balance"
+          hint="Withdraw from wallet balance"
         />
         <StatCard label="Balance" value={loading ? '…' : `₦${balance.toLocaleString()}`} hint="Optional/internal" />
         <StatCard label="Credits (sum)" value={loading ? '…' : `₦${Math.round(totals.credit).toLocaleString()}`} />
@@ -261,7 +261,7 @@ export default function VendorWalletPage() {
       <div className="rounded-xl border bg-white">
         <div className="border-b px-4 py-3">
           <div className="text-sm font-medium">Withdrawal requests</div>
-          <div className="text-xs opacity-60">Pending → approved/rejected → paid (later Paystack).</div>
+          <div className="text-xs opacity-60">Pending → approved/rejected → paid.</div>
         </div>
 
         <div className="overflow-x-auto">

@@ -211,7 +211,7 @@ export default function VendorBookingsPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        Click Order ID to view booking details (next step).
+        Click Order ID to view booking details.
       </div>
     </div>
   )

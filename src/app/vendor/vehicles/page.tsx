@@ -144,7 +144,7 @@ export default function VendorVehiclesPage() {
         <div className="flex gap-2 w-full sm:w-auto">
           <input
             className="w-full sm:w-80 rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-            placeholder="Search: label, plate, compliance…"
+            placeholder="Search: label, plate…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -219,7 +219,7 @@ export default function VendorVehiclesPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        Next: build <code>/vendor/vehicles/new</code>, then Assign Driver → Vehicle.
+        ou can manage your vehicle and assign drivers to a vehicle.
       </div>
     </div>
   )
