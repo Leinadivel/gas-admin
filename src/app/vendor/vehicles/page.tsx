@@ -219,7 +219,7 @@ export default function VendorVehiclesPage() {
       </div>
 
       <div className="text-xs opacity-60">
-        ou can manage your vehicle and assign drivers to a vehicle.
+        You can manage your vehicle and assign drivers to a vehicle.
       </div>
     </div>
   )
