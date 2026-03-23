@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
+import { Car, Plus, Search, UserPlus } from 'lucide-react'
 
 type VehicleRow = {
   id: string
@@ -68,7 +69,6 @@ export default function VendorVehiclesPage() {
         return
       }
 
-      // ✅ SAFE vendor lookup (NO maybeSingle)
       const { data: vendorRows, error: vendorErr } = await supabase
         .from('vendors')
         .select('id,business_name,profile_id,user_id,created_at')
@@ -98,10 +98,11 @@ export default function VendorVehiclesPage() {
 
       setVendor(vendorRow)
 
-      // Load vehicles
       const { data: vehRows, error: vehiclesErr } = await supabase
         .from('vendor_vehicles')
-        .select('id,vendor_id,label,plate_number,is_active,is_online,compliance_status,created_at,updated_at')
+        .select(
+          'id,vendor_id,label,plate_number,is_active,is_online,compliance_status,created_at,updated_at'
+        )
         .eq('vendor_id', vendorRow.id)
         .order('created_at', { ascending: false })
         .limit(200)
@@ -132,94 +133,143 @@ export default function VendorVehiclesPage() {
   }, [])
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Vehicles</h1>
-          <p className="text-sm opacity-70">
-            {vendor?.business_name ? `${vendor.business_name} fleet` : 'Your vehicles'}
-          </p>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-blue-100 p-3 text-blue-600">
+            <Car size={22} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Vehicles</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {vendor?.business_name ? `${vendor.business_name} fleet` : 'Manage your vehicles'}
+            </p>
+          </div>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/vendor/assign"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+          >
+            <UserPlus size={16} />
+            Assign driver
+          </Link>
+
+          <Link
+            href="/vendor/vehicles/new"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          >
+            <Plus size={16} />
+            Add vehicle
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="relative w-full sm:max-w-sm">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
-            className="w-full sm:w-80 rounded-md border bg-white px-3 py-2 outline-none focus:ring-2"
-            placeholder="Search: label, plate…"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            placeholder="Search by label, plate, or compliance..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <div className="flex gap-2">
-            <Link
-              href="/vendor/assign"
-              className="rounded-md border bg-white px-4 py-2 text-sm whitespace-nowrap hover:bg-gray-50"
-            >
-              Assign driver
-            </Link>
-
-            <Link
-              href="/vendor/vehicles/new"
-              className="rounded-md bg-black text-white px-4 py-2 text-sm whitespace-nowrap"
-            >
-              Add vehicle
-            </Link>
-          </div>
         </div>
       </div>
 
       {error ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="border-b bg-gray-50">
-            <tr className="text-left">
-              <th className="px-4 py-3">Created</th>
-              <th className="px-4 py-3">Vehicle ID</th>
-              <th className="px-4 py-3">Label</th>
-              <th className="px-4 py-3">Plate</th>
-              <th className="px-4 py-3">Online</th>
-              <th className="px-4 py-3">Active</th>
-              <th className="px-4 py-3">Compliance</th>
-            </tr>
-          </thead>
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-3">Created</th>
+                <th className="px-4 py-3">Vehicle ID</th>
+                <th className="px-4 py-3">Label</th>
+                <th className="px-4 py-3">Plate</th>
+                <th className="px-4 py-3">Online</th>
+                <th className="px-4 py-3">Active</th>
+                <th className="px-4 py-3">Compliance</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {loading ? (
-              <tr>
-                <td className="px-4 py-6 opacity-70" colSpan={7}>
-                  Loading…
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 opacity-70" colSpan={7}>
-                  No vehicles found.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((v) => (
-                <tr key={v.id} className="border-b last:border-b-0">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {v.created_at ? new Date(v.created_at).toLocaleString() : '—'}
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-500">
+                    Loading vehicles...
                   </td>
-                  <td className="px-4 py-3 font-mono">{v.id}</td>
-                  <td className="px-4 py-3">{v.label ?? '—'}</td>
-                  <td className="px-4 py-3 font-mono">{v.plate_number ?? '—'}</td>
-                  <td className="px-4 py-3">{v.is_online ? 'Yes' : 'No'}</td>
-                  <td className="px-4 py-3">{v.is_active ? 'Yes' : 'No'}</td>
-                  <td className="px-4 py-3">{v.compliance_status ?? '—'}</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12">
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <div className="mb-3 rounded-full bg-gray-100 p-3 text-gray-400">
+                        <Car size={22} />
+                      </div>
+                      <h3 className="text-sm font-semibold text-gray-900">No vehicles found</h3>
+                      <p className="mt-1 max-w-sm text-sm text-gray-500">
+                        No vehicles match your current search. Add a new vehicle or try a
+                        different keyword.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((v) => (
+                  <tr key={v.id} className="transition hover:bg-gray-50/80">
+                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                      {v.created_at ? new Date(v.created_at).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{v.id}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{v.label ?? '—'}</td>
+                    <td className="px-4 py-3 font-mono text-gray-700">{v.plate_number ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          v.is_online
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {v.is_online ? 'Online' : 'Offline'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          v.is_active
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {v.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">
+                        {v.compliance_status ?? '—'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="text-xs opacity-60">
-        You can manage your vehicle and assign drivers to a vehicle.
+      <div className="text-xs text-gray-400">
+        Manage your fleet and assign drivers to each vehicle from this page.
       </div>
     </div>
   )
