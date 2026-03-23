@@ -2,6 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import {
+  BadgeCheck,
+  Building2,
+  CheckCircle2,
+  CreditCard,
+  Landmark,
+  Loader2,
+  ShieldCheck,
+} from 'lucide-react'
 
 type VendorRow = {
   id: string
@@ -35,7 +44,6 @@ export default function VendorProfilePage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState('')
 
-  // Paystack banks UI
   const [banks, setBanks] = useState<PaystackBank[]>([])
   const [banksLoaded, setBanksLoaded] = useState(false)
   const [bankOpen, setBankOpen] = useState(false)
@@ -51,11 +59,9 @@ export default function VendorProfilePage() {
 
   const filteredBanks = useMemo(() => {
     const q = bankQuery.trim().toLowerCase()
-    const list = banks.filter(b => (b.active ?? true) !== false)
+    const list = banks.filter((b) => (b.active ?? true) !== false)
     if (!q) return list.slice(0, 25)
-    return list
-      .filter(b => b.name.toLowerCase().includes(q))
-      .slice(0, 25)
+    return list.filter((b) => b.name.toLowerCase().includes(q)).slice(0, 25)
   }, [banks, bankQuery])
 
   useEffect(() => {
@@ -85,7 +91,9 @@ export default function VendorProfilePage() {
 
       const { data, error } = await supabase
         .from('vendors')
-        .select('id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
+        .select(
+          'id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code'
+        )
         .eq('profile_id', uid)
         .maybeSingle()
 
@@ -121,7 +129,6 @@ export default function VendorProfilePage() {
     }
   }, [])
 
-  // ✅ Fetch banks from backend (server uses Paystack secret)
   const loadBanks = async () => {
     if (banksLoaded) return
     try {
@@ -136,7 +143,6 @@ export default function VendorProfilePage() {
     }
   }
 
-  // ✅ Resolve account name (server-side)
   const resolveAccountName = async (bank_code: string, account_number: string) => {
     if (!bank_code || account_number.length !== 10) return
     setResolving(true)
@@ -157,7 +163,6 @@ export default function VendorProfilePage() {
       setAccountName(name)
       setNotice('Account verified ✅')
     } catch (e: any) {
-      // Don’t block saving, but show error
       setAccountName('')
       setError(e?.message ?? 'Account resolution failed')
     } finally {
@@ -165,16 +170,13 @@ export default function VendorProfilePage() {
     }
   }
 
-  // Auto resolve when bankCode + 10-digit accountNumber ready
   useEffect(() => {
     const code = bankCode.trim()
     const acc = accountNumber.replace(/\D/g, '').slice(0, 10)
 
-    // keep state sanitized
     if (acc !== accountNumber) setAccountNumber(acc)
 
     if (!code || acc.length !== 10) return
-    // Only resolve if user hasn’t manually typed accountName or it’s empty
     resolveAccountName(code, acc)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankCode])
@@ -205,7 +207,9 @@ export default function VendorProfilePage() {
         .from('vendors')
         .update(patch)
         .eq('id', vendor.id)
-        .select('id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code')
+        .select(
+          'id,profile_id,business_name,bank_name,bank_code,account_number,account_name,paystack_recipient_code'
+        )
         .maybeSingle()
 
       if (error) throw new Error(error.message)
@@ -224,132 +228,213 @@ export default function VendorProfilePage() {
     setBankCode(b.code)
     setBankOpen(false)
     setBankQuery('')
-    setAccountName('') // will be resolved again
-    // Resolve when account number is ready (10 digits)
+    setAccountName('')
     const acc = accountNumber.trim()
     if (acc.length === 10) resolveAccountName(b.code, acc)
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Vendor Profile</h1>
-        <p className="text-sm opacity-70">Update business + bank details for payouts.</p>
+    <div className="space-y-6">
+      <div className="flex items-start gap-3">
+        <div className="rounded-2xl bg-blue-100 p-3 text-blue-600">
+          <Building2 size={22} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Vendor Profile</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Update your business and payout details.
+          </p>
+        </div>
       </div>
 
       {loading ? (
-        <div className="rounded-xl border bg-white p-4 text-sm opacity-70">Loading…</div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
+          Loading profile...
+        </div>
       ) : null}
 
       {notice ? (
-        <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {notice}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
       {!loading && vendor ? (
-        <div className="rounded-xl border bg-white p-4 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Business name" value={businessName} onChange={setBusinessName} />
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="mb-6">
+              <h2 className="text-base font-semibold text-gray-900">Business & payout details</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Keep your vendor information accurate for smooth withdrawals and admin review.
+              </p>
+            </div>
 
-            {/* ✅ Bank dropdown */}
-            <div className="space-y-1 relative">
-              <div className="text-sm font-medium">Bank name</div>
-              <input
-                value={bankName}
-                onFocus={async () => {
-                  await loadBanks()
-                  setBankOpen(true)
-                }}
-                onChange={(e) => {
-                  setBankName(e.target.value)
-                  setBankQuery(e.target.value)
-                  setBankOpen(true)
-                }}
-                placeholder="Select bank"
-                className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Business name"
+                value={businessName}
+                onChange={setBusinessName}
+                placeholder="Your business name"
+                icon={<Building2 size={16} />}
               />
 
-              {bankOpen ? (
-                <div className="absolute z-20 mt-1 w-full rounded-md border bg-white shadow-sm max-h-64 overflow-auto">
-                  <div className="px-3 py-2 text-xs opacity-70 border-b">
-                    {banksLoaded ? 'Select a bank' : 'Loading banks…'}
+              <div className="relative space-y-2">
+                <label className="text-sm font-medium text-gray-700">Bank name</label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Landmark size={16} />
+                  </span>
+                  <input
+                    value={bankName}
+                    onFocus={async () => {
+                      await loadBanks()
+                      setBankOpen(true)
+                    }}
+                    onChange={(e) => {
+                      setBankName(e.target.value)
+                      setBankQuery(e.target.value)
+                      setBankOpen(true)
+                    }}
+                    placeholder="Select bank"
+                    className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  />
+                </div>
+
+                {bankOpen ? (
+                  <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                    <div className="border-b px-4 py-3 text-xs text-gray-500">
+                      {banksLoaded ? 'Select a bank' : 'Loading banks...'}
+                    </div>
+
+                    {filteredBanks.map((b) => (
+                      <button
+                        key={b.code}
+                        type="button"
+                        className="w-full px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                        onClick={() => onPickBank(b)}
+                      >
+                        {b.name}
+                      </button>
+                    ))}
+
+                    {!filteredBanks.length ? (
+                      <div className="px-4 py-4 text-sm text-gray-500">No banks found</div>
+                    ) : null}
+
+                    <div className="border-t px-4 py-3">
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                        onClick={() => setBankOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
+                ) : null}
+              </div>
 
-                  {filteredBanks.map((b) => (
-                    <button
-                      key={b.code}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                      onClick={() => onPickBank(b)}
-                    >
-                      {b.name}
-                    </button>
-                  ))}
+              <Field
+                label="Bank code (Paystack)"
+                value={bankCode}
+                onChange={setBankCode}
+                disabled
+                icon={<CreditCard size={16} />}
+              />
 
-                  {!filteredBanks.length ? (
-                    <div className="px-3 py-3 text-sm opacity-70">No banks found</div>
-                  ) : null}
+              <Field
+                label="Account number"
+                value={accountNumber}
+                onChange={(v) => {
+                  const clean = v.replace(/\D/g, '').slice(0, 10)
+                  setAccountNumber(clean)
+                  setAccountName('')
+                  setNotice(null)
+                  if (bankCode.trim() && clean.length === 10) {
+                    resolveAccountName(bankCode.trim(), clean)
+                  }
+                }}
+                placeholder="Enter 10-digit account number"
+                icon={<CreditCard size={16} />}
+              />
 
-                  <div className="px-3 py-2 border-t">
-                    <button
-                      type="button"
-                      className="text-xs underline opacity-70"
-                      onClick={() => setBankOpen(false)}
-                    >
-                      Close
-                    </button>
-                  </div>
+              <Field
+                label="Account name"
+                value={accountName}
+                onChange={setAccountName}
+                disabled
+                rightHint={resolving ? 'Verifying...' : ''}
+                icon={
+                  resolving ? <Loader2 size={16} className="animate-spin" /> : <BadgeCheck size={16} />
+                }
+              />
+            </div>
+
+            <div className="mt-6 space-y-4 border-t border-gray-100 pt-5">
+              <div className="rounded-xl bg-gray-50 px-4 py-3">
+                <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Recipient code
+                </div>
+                <div className="mt-1 font-mono text-sm text-gray-900">
+                  {vendor.paystack_recipient_code ?? '—'}
+                </div>
+              </div>
+
+              {missing.length ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Missing: {missing.join(', ')}. Admin “Mark paid” will be disabled until these are
+                  filled.
                 </div>
               ) : null}
+
+              <button
+                onClick={save}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <CheckCircle2 size={16} />
+                {saving ? 'Saving...' : 'Save changes'}
+              </button>
             </div>
-
-            <Field label="Bank code (Paystack)" value={bankCode} onChange={setBankCode} disabled />
-
-            <Field
-              label="Account number"
-              value={accountNumber}
-              onChange={(v) => {
-                const clean = v.replace(/\D/g, '').slice(0, 10)
-                setAccountNumber(clean)
-                setAccountName('')
-                setNotice(null)
-                if (bankCode.trim() && clean.length === 10) resolveAccountName(bankCode.trim(), clean)
-              }}
-            />
-
-            <Field
-              label="Account name"
-              value={accountName}
-              onChange={setAccountName}
-              disabled
-              rightHint={resolving ? 'Verifying…' : ''}
-            />
           </div>
 
-          <div className="text-xs opacity-70">
-            Recipient code: <span className="font-mono">{vendor.paystack_recipient_code ?? '—'}</span>
-          </div>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
+                  <ShieldCheck size={18} />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">Payout readiness</h3>
+              </div>
 
-          {missing.length ? (
-            <div className="text-xs text-amber-700">
-              Missing: {missing.join(', ')} (Admin “Mark paid” will be disabled until these are filled)
+              <div className="space-y-3 text-sm text-gray-600">
+                <div className="rounded-xl border border-white/80 bg-white/80 p-3">
+                  Your bank details are used to prepare payout recipients for withdrawals.
+                </div>
+                <div className="rounded-xl border border-white/80 bg-white/80 p-3">
+                  When bank details change, the recipient code is reset and recreated on the next
+                  payout.
+                </div>
+                <div className="rounded-xl border border-white/80 bg-white/80 p-3">
+                  Verified account details help prevent payout failures and delays.
+                </div>
+              </div>
             </div>
-          ) : null}
 
-          <button
-            onClick={save}
-            disabled={saving}
-            className="rounded-md bg-black text-white px-4 py-2 text-sm disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+            <div className="rounded-2xl border border-orange-100 bg-orange-50 p-5">
+              <h3 className="text-sm font-semibold text-gray-900">Helpful tip</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                Pick the correct bank first, then enter the 10-digit account number to auto-verify
+                the account name.
+              </p>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
@@ -362,25 +447,40 @@ function Field({
   onChange,
   disabled,
   rightHint,
+  placeholder,
+  icon,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   disabled?: boolean
   rightHint?: string
+  placeholder?: string
+  icon?: React.ReactNode
 }) {
   return (
-    <label className="space-y-1">
+    <label className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">{label}</div>
-        {rightHint ? <div className="text-xs opacity-70">{rightHint}</div> : null}
+        <div className="text-sm font-medium text-gray-700">{label}</div>
+        {rightHint ? <div className="text-xs text-gray-400">{rightHint}</div> : null}
       </div>
-      <input
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border bg-white px-3 py-2 text-sm disabled:opacity-60"
-      />
+
+      <div className="relative">
+        {icon ? (
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            {icon}
+          </span>
+        ) : null}
+        <input
+          value={value}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full rounded-xl border border-gray-200 bg-white py-3 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-50 disabled:text-gray-500 ${
+            icon ? 'pl-10' : 'px-4'
+          }`}
+        />
+      </div>
     </label>
   )
 }
