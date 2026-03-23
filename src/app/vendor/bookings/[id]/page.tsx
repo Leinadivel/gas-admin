@@ -4,6 +4,14 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import {
+  ArrowLeft,
+  CreditCard,
+  MapPin,
+  Truck,
+  User,
+  Wallet,
+} from 'lucide-react'
 
 type VendorRow = { id: string; business_name: string | null }
 
@@ -199,36 +207,50 @@ export default function VendorBookingDetailsPage() {
   }, [orderId])
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Booking details</h1>
-          <p className="text-sm opacity-70">
-            {vendor?.business_name ?? 'Vendor'} • Order {orderId ? orderId.slice(0, 8) : '—'}
-          </p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-blue-100 p-3 text-blue-600">
+            <Truck size={20} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+              Booking details
+            </h1>
+            <p className="text-sm text-gray-500">
+              {vendor?.business_name ?? 'Vendor'} • Order{' '}
+              {orderId ? orderId.slice(0, 8) : '—'}
+            </p>
+          </div>
         </div>
 
         <Link
           href="/vendor/bookings"
-          className="rounded-md border bg-white px-3 py-2 text-sm hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition hover:border-blue-200 hover:text-blue-600"
         >
+          <ArrowLeft size={16} />
           Back
         </Link>
       </div>
 
-      {loading ? (
-        <div className="rounded-xl border bg-white p-4 text-sm opacity-70">Loading…</div>
-      ) : null}
+      {/* States */}
+      {loading && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
+          Loading booking details...
+        </div>
+      )}
 
-      {error ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
-      ) : null}
+      )}
 
-      {order ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="Status">
+      {/* Content */}
+      {order && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card title="Status" icon={<Truck size={16} />}>
             <Row label="Status" value={order.status} />
             <Row label="Created" value={new Date(order.created_at).toLocaleString()} />
             <Row label="Payment status" value={order.payment_status ?? '—'} />
@@ -239,22 +261,25 @@ export default function VendorBookingDetailsPage() {
             />
           </Card>
 
-          <Card title="Customer location">
+          <Card title="Customer location" icon={<MapPin size={16} />}>
             <Row label="Address" value={order.location ?? '—'} />
             <Row label="Latitude" value={order.latitude ?? '—'} mono />
             <Row label="Longitude" value={order.longitude ?? '—'} mono />
             <Row label="Distance (km)" value={order.distance_km ?? '—'} />
           </Card>
 
-          <Card title="Order">
+          <Card title="Order details" icon={<User size={16} />}>
             <Row label="Cylinder size" value={order.cylinder_size ?? '—'} />
             <Row label="Quantity" value={order.quantity ?? '—'} />
             <Row label="Vehicle" value={vehiclePlate ?? '—'} mono />
             <Row label="Driver" value={driverName ?? '—'} />
           </Card>
 
-          <Card title="Amounts">
-            <Row label="Total" value={order.total_amount != null ? `₦${order.total_amount}` : '—'} />
+          <Card title="Payment breakdown" icon={<CreditCard size={16} />}>
+            <Row
+              label="Total"
+              value={order.total_amount != null ? `₦${order.total_amount}` : '—'}
+            />
             <Row
               label="Delivery fee"
               value={order.delivery_fee != null ? `₦${order.delivery_fee}` : '—'}
@@ -267,23 +292,34 @@ export default function VendorBookingDetailsPage() {
               label="Platform amount"
               value={order.platform_amount != null ? `₦${order.platform_amount}` : '—'}
             />
-            <Row label="Paystack ref" value={order.paystack_reference ?? '—'} mono />
+            <Row label="Reference" value={order.paystack_reference ?? '—'} mono />
           </Card>
         </div>
-      ) : null}
+      )}
 
-      <div className="text-xs opacity-60">
-        Next: we’ll add a “Map view / open in Google Maps” button using lat/lng.
+      <div className="text-xs text-gray-400">
+        Next: Map integration and live tracking UI.
       </div>
     </div>
   )
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  icon,
+  children,
+}: {
+  title: string
+  icon?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
-    <div className="rounded-xl border bg-white p-4">
-      <div className="text-sm font-medium">{title}</div>
-      <div className="mt-3 space-y-2">{children}</div>
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+        {icon}
+        {title}
+      </div>
+      <div className="mt-4 space-y-3">{children}</div>
     </div>
   )
 }
@@ -299,8 +335,12 @@ function Row({
 }) {
   return (
     <div className="flex items-start justify-between gap-4 text-sm">
-      <div className="opacity-70">{label}</div>
-      <div className={mono ? 'font-mono text-xs text-right break-all' : 'text-right'}>
+      <div className="text-gray-500">{label}</div>
+      <div
+        className={`text-right text-gray-900 ${
+          mono ? 'font-mono text-xs break-all' : ''
+        }`}
+      >
         {String(value)}
       </div>
     </div>

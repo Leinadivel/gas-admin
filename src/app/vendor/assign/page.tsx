@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { ArrowRightLeft, Car, CheckCircle2, UserCheck, Users } from 'lucide-react'
 
 type VendorRow = { id: string; business_name: string | null }
 
@@ -38,6 +39,11 @@ export default function VendorAssignPage() {
     [staff, selectedStaffId]
   )
 
+  const currentVehicle = useMemo(
+    () => vehicles.find((v) => v.id === staffSelected?.vehicle_id) ?? null,
+    [vehicles, staffSelected]
+  )
+
   useEffect(() => {
     let mounted = true
 
@@ -64,7 +70,6 @@ export default function VendorAssignPage() {
         return
       }
 
-      // Vendor row
       const { data: vendorRow, error: vendorErr } = await supabase
         .from('vendors')
         .select('id,business_name')
@@ -87,7 +92,6 @@ export default function VendorAssignPage() {
       const v = vendorRow as VendorRow
       setVendor(v)
 
-      // Load active staff + active vehicles
       const [staffRes, vehiclesRes] = await Promise.all([
         supabase
           .from('vendor_staff')
@@ -132,7 +136,6 @@ export default function VendorAssignPage() {
       return
     }
 
-    // vehicle can be empty to "unassign"
     setSaving(true)
 
     const { error } = await supabase
@@ -147,7 +150,6 @@ export default function VendorAssignPage() {
       return
     }
 
-    // Update local state for instant UI feedback
     setStaff((prev) =>
       prev.map((s) =>
         s.id === selectedStaffId ? { ...s, vehicle_id: selectedVehicleId || null } : s
@@ -158,92 +160,174 @@ export default function VendorAssignPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-semibold">Assign driver</h1>
-        <p className="text-sm opacity-70">
-          Select a driver and choose a vehicle to assign (or set to Unassigned).
-        </p>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="flex items-start gap-3">
+        <div className="rounded-2xl bg-blue-100 p-3 text-blue-600">
+          <ArrowRightLeft size={22} />
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+            Assign driver
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {vendor?.business_name
+              ? `Assign active drivers and vehicles for ${vendor.business_name}.`
+              : 'Select a driver and choose a vehicle to assign or leave them unassigned.'}
+          </p>
+        </div>
       </div>
 
       {error ? (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
 
       {success ? (
-        <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {success}
         </div>
       ) : null}
 
-      <div className="rounded-xl border bg-white p-4 space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Driver / Staff</label>
-          <select
-            className="w-full rounded-md border px-3 py-2 bg-white"
-            value={selectedStaffId}
-            onChange={(e) => {
-              const id = e.target.value
-              setSelectedStaffId(id)
-              const s = staff.find((x) => x.id === id)
-              setSelectedVehicleId(s?.vehicle_id ?? '')
-              setSuccess(null)
-              setError(null)
-            }}
-            disabled={loading}
-          >
-            <option value="">Select driver…</option>
-            {staff.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.role ?? 'staff'} • {s.user_id ? s.user_id.slice(0, 8) : 'no-user'} • {s.id.slice(0, 8)}
-              </option>
-            ))}
-          </select>
-          <div className="text-xs opacity-60">
-            Tip: Select driver name to assign.
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-6">
+            <h2 className="text-base font-semibold text-gray-900">Assignment details</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Choose a driver first, then assign a vehicle from your active fleet.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Driver / Staff</label>
+              <div className="relative">
+                <Users
+                  size={18}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <select
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-50"
+                  value={selectedStaffId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setSelectedStaffId(id)
+                    const s = staff.find((x) => x.id === id)
+                    setSelectedVehicleId(s?.vehicle_id ?? '')
+                    setSuccess(null)
+                    setError(null)
+                  }}
+                  disabled={loading}
+                >
+                  <option value="">Select driver…</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.role ?? 'staff'} • {s.user_id ? s.user_id.slice(0, 8) : 'no-user'} •{' '}
+                      {s.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-gray-400">
+                Pick the staff member you want to assign.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Vehicle</label>
+              <div className="relative">
+                <Car
+                  size={18}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <select
+                  className="w-full appearance-none rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-50"
+                  value={selectedVehicleId}
+                  onChange={(e) => {
+                    setSelectedVehicleId(e.target.value)
+                    setSuccess(null)
+                    setError(null)
+                  }}
+                  disabled={loading || !selectedStaffId}
+                >
+                  <option value="">Unassigned</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {(v.label ?? 'Vehicle') +
+                        (v.plate_number ? ` • ${v.plate_number}` : '') +
+                        ` • ${v.id.slice(0, 8)}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {staffSelected ? (
+                <p className="text-xs text-gray-400">
+                  Current vehicle:{' '}
+                  {currentVehicle
+                    ? `${currentVehicle.label ?? 'Vehicle'}${
+                        currentVehicle.plate_number ? ` • ${currentVehicle.plate_number}` : ''
+                      }`
+                    : staffSelected.vehicle_id
+                    ? staffSelected.vehicle_id
+                    : 'Unassigned'}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-5 sm:flex-row">
+            <button
+              onClick={onAssign}
+              disabled={loading || saving || !selectedStaffId}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CheckCircle2 size={16} />
+              {saving ? 'Saving…' : 'Save assignment'}
+            </button>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Vehicle</label>
-          <select
-            className="w-full rounded-md border px-3 py-2 bg-white"
-            value={selectedVehicleId}
-            onChange={(e) => {
-              setSelectedVehicleId(e.target.value)
-              setSuccess(null)
-              setError(null)
-            }}
-            disabled={loading || !selectedStaffId}
-          >
-            <option value="">Unassigned</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {(v.label ?? 'Vehicle') +
-                  (v.plate_number ? ` • ${v.plate_number}` : '') +
-                  ` • ${v.id.slice(0, 8)}`}
-              </option>
-            ))}
-          </select>
-          {staffSelected ? (
-            <div className="text-xs opacity-60">
-              Current vehicle: {staffSelected.vehicle_id ? staffSelected.vehicle_id : 'Unassigned'}
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
+                <UserCheck size={18} />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-900">Assignment overview</h3>
             </div>
-          ) : null}
+
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="flex items-center justify-between rounded-xl border border-white/80 bg-white/80 p-3">
+                <span>Active staff</span>
+                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                  {loading ? '...' : staff.length}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-white/80 bg-white/80 p-3">
+                <span>Active vehicles</span>
+                <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-700">
+                  {loading ? '...' : vehicles.length}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-white/80 bg-white/80 p-3">
+                Leave the vehicle field as <span className="font-medium text-gray-900">Unassigned</span>{' '}
+                if the selected staff member should not be attached to any vehicle yet.
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 p-5">
+            <h3 className="text-sm font-semibold text-gray-900">Helpful note</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Assignments update the selected staff member instantly, so your dispatch and fleet
+              views stay organized.
+            </p>
+          </div>
         </div>
-
-        <button
-          onClick={onAssign}
-          disabled={loading || saving || !selectedStaffId}
-          className="rounded-md bg-black text-white px-4 py-2 text-sm disabled:opacity-60"
-        >
-          {saving ? 'Saving…' : 'Save assignment'}
-        </button>
       </div>
-
-
     </div>
   )
 }
