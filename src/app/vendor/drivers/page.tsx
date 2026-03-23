@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
-import { Search, Plus, User, Truck, CheckCircle2, XCircle } from 'lucide-react'
+import { Search, Plus, Users } from 'lucide-react'
 
 type StaffRow = {
   id: string
@@ -45,7 +45,12 @@ export default function VendorDriversPage() {
     return staff.filter((s) => {
       const vehiclePlate = s.vehicle_id ? vehicleMap[s.vehicle_id] ?? '' : ''
 
-      const hay = [s.id, s.full_name ?? '', s.role ?? '', vehiclePlate]
+      const hay = [
+        s.id,
+        s.full_name ?? '',
+        s.role ?? '',
+        vehiclePlate,
+      ]
         .join(' ')
         .toLowerCase()
 
@@ -109,9 +114,7 @@ export default function VendorDriversPage() {
 
       const { data: staffRows, error: staffErr } = await supabase
         .from('vendor_staff')
-        .select(
-          'id,vendor_id,user_id,full_name,role,vehicle_id,is_active,created_at'
-        )
+        .select('id,vendor_id,user_id,full_name,role,vehicle_id,is_active,created_at')
         .eq('vendor_id', vendorRow.id)
         .order('created_at', { ascending: false })
         .limit(200)
@@ -157,11 +160,7 @@ export default function VendorDriversPage() {
 
     const ch = supabase
       .channel('vendor-staff')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'vendor_staff' },
-        load
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vendor_staff' }, load)
       .subscribe()
 
     return () => {
@@ -173,75 +172,82 @@ export default function VendorDriversPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Drivers</h1>
-          <p className="text-sm text-muted-foreground">
-            {vendor?.business_name
-              ? `${vendor.business_name} staff`
-              : 'Manage your drivers and staff'}
-          </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
+            <Users size={20} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Drivers</h1>
+            <p className="text-sm text-gray-500">
+              {vendor?.business_name
+                ? `${vendor.business_name} staff`
+                : 'Manage your drivers and staff'}
+            </p>
+          </div>
         </div>
 
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          {/* Search */}
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              className="w-full rounded-lg border bg-white pl-9 pr-3 py-2 text-sm shadow-sm outline-none transition focus:ring-2 focus:ring-blue-500"
-              placeholder="Search drivers, role, plate..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
+        <Link
+          href="/vendor/drivers/new"
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+        >
+          <Plus size={16} />
+          Add driver
+        </Link>
+      </div>
 
-          {/* CTA */}
-          <Link
-            href="/vendor/drivers/new"
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Add driver
-          </Link>
+      {/* Search */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-sm">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            placeholder="Search drivers, roles, plates..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
       </div>
 
       {/* Error */}
-      {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
-      )}
+      ) : null}
 
       {/* Table Card */}
-      <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="px-5 py-3 text-left">Created</th>
-                <th className="px-5 py-3 text-left">Staff ID</th>
-                <th className="px-5 py-3 text-left">Role</th>
-                <th className="px-5 py-3 text-left">Driver</th>
-                <th className="px-5 py-3 text-left">Vehicle</th>
-                <th className="px-5 py-3 text-left">Status</th>
+              <tr className="text-left">
+                <th className="px-4 py-3 font-medium">Created</th>
+                <th className="px-4 py-3 font-medium">Staff ID</th>
+                <th className="px-4 py-3 font-medium">Role</th>
+                <th className="px-4 py-3 font-medium">Driver</th>
+                <th className="px-4 py-3 font-medium">Vehicle</th>
+                <th className="px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="divide-y">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
                     Loading drivers...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center">
+                  <td colSpan={6} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-500">
-                      <User className="h-6 w-6 opacity-60" />
+                      <Users size={28} />
                       <p className="text-sm">No drivers found</p>
-                      <p className="text-xs opacity-60">
+                      <p className="text-xs text-gray-400">
                         Try adjusting your search or add a new driver
                       </p>
                     </div>
@@ -251,49 +257,44 @@ export default function VendorDriversPage() {
                 filtered.map((s) => (
                   <tr
                     key={s.id}
-                    className="border-t transition hover:bg-gray-50"
+                    className="transition hover:bg-gray-50"
                   >
-                    <td className="px-5 py-4 whitespace-nowrap text-gray-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">
                       {s.created_at
                         ? new Date(s.created_at).toLocaleString()
                         : '—'}
                     </td>
 
-                    <td className="px-5 py-4 font-mono text-xs text-gray-500">
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
                       {s.id}
                     </td>
 
-                    <td className="px-5 py-4">
-                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium">
+                    <td className="px-4 py-3">
+                      <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
                         {s.role ?? '—'}
                       </span>
                     </td>
 
-                    <td className="px-5 py-4 font-medium text-gray-800">
+                    <td className="px-4 py-3 font-medium text-gray-900">
                       {s.full_name ?? '—'}
                     </td>
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Truck className="h-4 w-4" />
-                        {s.vehicle_id
-                          ? vehicleMap[s.vehicle_id] ?? '—'
-                          : '—'}
-                      </div>
+                    <td className="px-4 py-3 text-gray-600">
+                      {s.vehicle_id
+                        ? vehicleMap[s.vehicle_id] ?? '—'
+                        : '—'}
                     </td>
 
-                    <td className="px-5 py-4">
-                      {s.is_active ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
-                          <XCircle className="h-3.5 w-3.5" />
-                          Inactive
-                        </span>
-                      )}
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                          s.is_active
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {s.is_active ? 'Active' : 'Inactive'}
+                      </span>
                     </td>
                   </tr>
                 ))
@@ -304,8 +305,8 @@ export default function VendorDriversPage() {
       </div>
 
       {/* Footer hint */}
-      <div className="text-xs text-muted-foreground">
-        Manage your drivers, assign vehicles, and monitor activity
+      <div className="text-xs text-gray-400">
+        Manage and assign drivers to vehicles from this page.
       </div>
     </div>
   )
