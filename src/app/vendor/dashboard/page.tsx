@@ -142,7 +142,7 @@ export default function VendorDashboardPage() {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white/95">
               <Flame className="h-4 w-4" />
-              24hrsGas Vendor Portal
+              Welcome to Your Portal
             </div>
 
             <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
@@ -201,7 +201,6 @@ export default function VendorDashboardPage() {
           label="Wallet Balance"
           value={walletText}
           href="/vendor/wallet"
-          hint="Paystack coming next"
           icon={<Wallet className="h-5 w-5" />}
           tone="orange"
         />
