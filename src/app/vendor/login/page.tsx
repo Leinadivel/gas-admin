@@ -72,7 +72,7 @@ function VendorLoginInner() {
                 <span className="text-base font-extrabold">G</span>
               </span>
               <div className="leading-tight">
-                <div className="text-base font-extrabold tracking-tight text-gray-900">GasGo</div>
+                <div className="text-base font-extrabold tracking-tight text-gray-900">24hrsGas</div>
                 <div className="text-xs font-medium text-gray-500">Vendor Portal</div>
               </div>
             </Link>
