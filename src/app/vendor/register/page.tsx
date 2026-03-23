@@ -4,6 +4,16 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Lock,
+  Mail,
+  ShieldCheck,
+  Store,
+  UserPlus,
+} from 'lucide-react'
 
 export default function VendorRegisterPage() {
   const router = useRouter()
@@ -58,99 +68,188 @@ export default function VendorRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
-      <div className="w-full max-w-sm rounded-xl border p-6 shadow-sm bg-white">
-        {/* Top: logo + back link */}
-        <div className="mb-5 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
-              <span className="text-sm font-extrabold">G</span>
-            </span>
-            <div className="leading-tight">
-              <div className="text-sm font-extrabold tracking-tight">GasGo</div>
-              <div className="text-[11px] text-gray-500">Vendor Portal</div>
-            </div>
-          </Link>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-orange-50">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 sm:px-6 lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-8">
+        <div className="hidden lg:block">
+          <div className="max-w-md">
+            <Link href="/" className="inline-flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
+                <span className="text-base font-extrabold">G</span>
+              </span>
+              <div className="leading-tight">
+                <div className="text-base font-extrabold tracking-tight text-gray-900">GasGo</div>
+                <div className="text-xs font-medium text-gray-500">Vendor Portal</div>
+              </div>
+            </Link>
 
-          <Link
-            href="/"
-            className="text-xs font-semibold text-gray-600 hover:text-gray-900"
-          >
-            ← Back to home
-          </Link>
+            <div className="mt-10">
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+                <ShieldCheck size={14} />
+                Start selling with confidence
+              </div>
+
+              <h1 className="mt-5 text-4xl font-semibold tracking-tight text-gray-900">
+                Create your vendor account and start managing your operations professionally.
+              </h1>
+
+              <p className="mt-4 text-base leading-7 text-gray-600">
+                Join the vendor portal to manage bookings, vehicles, drivers, wallet payouts, and
+                business documents from one clean dashboard.
+              </p>
+
+              <div className="mt-8 grid gap-4">
+                <div className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm backdrop-blur">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-blue-100 p-2 text-blue-600">
+                      <Store size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Vendor workspace</div>
+                      <div className="mt-1 text-sm text-gray-600">
+                        Access your full vendor dashboard after registration and verification.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm backdrop-blur">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-orange-100 p-2 text-orange-600">
+                      <CheckCircle2 size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Simple onboarding</div>
+                      <div className="mt-1 text-sm text-gray-600">
+                        Create your account, verify your email, and sign in to continue setup.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <h1 className="text-xl font-semibold">Vendor Registration</h1>
-        <p className="mt-1 text-sm opacity-70">
-          Create your vendor company account.
-        </p>
+        <div className="w-full">
+          <div className="mx-auto w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-[0_10px_40px_rgba(0,0,0,0.08)] sm:p-8">
+            <div className="mb-6 flex items-center justify-between">
+              <Link href="/" className="flex items-center gap-3 lg:hidden">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
+                  <span className="text-sm font-extrabold">G</span>
+                </span>
+                <div className="leading-tight">
+                  <div className="text-sm font-extrabold tracking-tight text-gray-900">GasGo</div>
+                  <div className="text-[11px] text-gray-500">Vendor Portal</div>
+                </div>
+              </Link>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Company name</label>
-            <input
-              className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="e.g. GasGo Partners Ltd"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Email</label>
-            <input
-              className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="vendor@company.com"
-              autoComplete="email"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Password</label>
-            <input
-              className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
-              autoComplete="new-password"
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-xs font-semibold text-gray-600 transition hover:text-blue-600"
+              >
+                <ArrowLeft size={14} />
+                Back to home
+              </Link>
             </div>
-          )}
 
-          {success && (
-            <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
-              {success}
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
+                Vendor Registration
+              </h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Create your vendor company account and get started.
+              </p>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-black px-4 py-2 text-white disabled:opacity-60"
-          >
-            {loading ? 'Creating…' : 'Create vendor account'}
-          </button>
+            <form onSubmit={onSubmit} className="mt-8 space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Company name</label>
+                <div className="relative">
+                  <Building2
+                    size={18}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="e.g. GasGo Partners Ltd"
+                    required
+                  />
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => router.push('/vendor/login')}
-            className="w-full rounded-md border px-4 py-2"
-          >
-            I already have an account
-          </button>
-        </form>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <div className="relative">
+                  <Mail
+                    size={18}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="vendor@company.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Password</label>
+                <div className="relative">
+                  <Lock
+                    size={18}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </div>
+
+              {error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              ) : null}
+
+              {success ? (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                  {success}
+                </div>
+              ) : null}
+
+              <div className="space-y-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <UserPlus size={16} />
+                  {loading ? 'Creating…' : 'Create vendor account'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/vendor/login')}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                >
+                  I already have an account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   )
